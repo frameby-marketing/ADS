@@ -157,11 +157,14 @@
   .mini-chart-wrap{position:relative;height:150px;margin:6px 0 0;}
   .mini-chart-wrap canvas{width:100% !important;height:100% !important;}
   .card:has(.mini-chart-wrap){min-height:280px;}
-  .card.no-chart{justify-content:center;min-height:220px;}
+  .card.no-chart{justify-content:center;min-height:280px;}
   #card-total-cum{text-align:center;}
   #card-total-cum [data-field="amount"]{margin-top:14px;color:#fff;}
   html[data-theme="light"] #card-total-cum [data-field="amount"]{color:var(--text-primary);}
-  #card-total-cum [data-field="delta"]{margin-top:10px;}
+  #card-total-cum [data-field="delta"]{margin-top:10px;font-size:23px;font-weight:800;}
+  #card-total-cum .cum-revenue-block{margin-top:22px;padding-top:18px;border-top:1px solid var(--card-border);}
+  #card-total-cum .cum-revenue-label{font-size:13px;color:var(--text-secondary);font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;}
+  #card-total-cum .cum-revenue-value{margin-top:8px;font-size:26px;font-weight:800;color:var(--text-primary);}
   .up{color:var(--positive);}
   .down{color:var(--negative);}
   .flat{color:var(--text-muted);}
@@ -330,6 +333,10 @@
       <div class="card-label">지난달까지 누적 총 광고비 <span class="tag">과세 기준</span></div>
       <div class="card-value-big placeholder" data-field="amount">-</div>
       <div class="card-sub placeholder" data-field="delta">연동 필요</div>
+      <div class="cum-revenue-block">
+        <div class="cum-revenue-label">지난달까지 누적 총 매출액 <span class="tag">과세 기준</span></div>
+        <div class="cum-revenue-value placeholder" data-field="revenue">-</div>
+      </div>
     </div>
   </div>
 
@@ -1133,7 +1140,7 @@ async function loadAll(source){
     ranAt: new Date().toLocaleString('ko-KR'),
     mode: mode === 'static' ? '정적 데이터(사용자 제공값)' : 'Google Sheets 실시간 연동',
   };
-  document.querySelectorAll('.card-delta, .card-sub, .card-value-big').forEach(el => el.classList.add('skeleton'));
+  document.querySelectorAll('.card-delta, .card-sub, .card-value-big, .cum-revenue-value').forEach(el => el.classList.add('skeleton'));
   await chartLibsReady; // 차트 라이브러리 로딩(성공/실패) 결과가 확정된 뒤에 계산·렌더링 진행
 
   try {
@@ -1274,7 +1281,7 @@ async function loadAll(source){
     renderTrendChart(rows2025, rows2026, prevMonthNum2);
 
     // ---- Row6: 누적 총 광고비 ([과세] 광고액 기준, 전월까지 누적) ----
-    renderCumTotalCard(ytdActual26, ytdActual25, '전년 대비');
+    renderCumTotalCard(ytdActual26, ytdActual25, '전년 대비', ytdRevenue26);
     renderTotalBarChart(ytdActual25, ytdActual26, yesterday.getFullYear());
 
     // ---- Row7: 채널별(META/네이버/구글/쿠팡) 누적 — 시트1 월별 요약, 1월~전월 ----
@@ -1299,7 +1306,7 @@ async function loadAll(source){
     diag.lastError = err.message;
     showBanner('데이터를 불러오는 중 오류가 발생했습니다: ' + err.message, true);
   } finally {
-    document.querySelectorAll('.card-delta, .card-sub, .card-value-big').forEach(el => el.classList.remove('skeleton'));
+    document.querySelectorAll('.card-delta, .card-sub, .card-value-big, .cum-revenue-value').forEach(el => el.classList.remove('skeleton'));
     renderDiagnostics();
   }
 }
@@ -1437,13 +1444,18 @@ function diffSuffixHTML(cur, prev){
   if (diff === 0) return '<br>(변동 없음)';
   return `<br>(${diff > 0 ? '▲' : '▼'} ${fmtWon(Math.abs(diff))} ${diff > 0 ? '증가' : '감소'})`;
 }
-function renderCumTotalCard(cur, prev, label){
+function renderCumTotalCard(cur, prev, label, cumRevenue){
   const card = document.getElementById('card-total-cum');
   const pct = pctChange(cur, prev);
   const amountEl = card.querySelector('[data-field="amount"]');
   amountEl.classList.remove('placeholder');
   amountEl.textContent = (cur === null || cur === undefined) ? '데이터 없음' : fmtWon(cur);
   setDelta(card, 'delta', pct, label);
+  const revenueEl = card.querySelector('[data-field="revenue"]');
+  if (revenueEl) {
+    revenueEl.classList.remove('placeholder');
+    revenueEl.textContent = (cumRevenue === null || cumRevenue === undefined) ? '데이터 없음' : fmtWon(cumRevenue);
+  }
 }
 function renderCumChannelCard(card, cur, prev, label){
   if (!card) return;
