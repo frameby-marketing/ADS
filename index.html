@@ -165,6 +165,7 @@
   #card-total-cum .cum-revenue-block{margin-top:22px;padding-top:18px;border-top:1px solid var(--card-border);}
   #card-total-cum .cum-revenue-label{font-size:13px;color:var(--text-secondary);font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;}
   #card-total-cum .cum-revenue-value{margin-top:8px;font-size:26px;font-weight:800;color:var(--text-primary);}
+  #card-total-cum [data-field="revenueDelta"]{margin-top:6px;}
   .up{color:var(--positive);}
   .down{color:var(--negative);}
   .flat{color:var(--text-muted);}
@@ -336,6 +337,7 @@
       <div class="cum-revenue-block">
         <div class="cum-revenue-label">지난달까지 누적 총 매출액 <span class="tag">과세 기준</span></div>
         <div class="cum-revenue-value placeholder" data-field="revenue">-</div>
+        <div class="card-sub placeholder" data-field="revenueDelta">연동 필요</div>
       </div>
     </div>
   </div>
@@ -1281,7 +1283,7 @@ async function loadAll(source){
     renderTrendChart(rows2025, rows2026, prevMonthNum2);
 
     // ---- Row6: 누적 총 광고비 ([과세] 광고액 기준, 전월까지 누적) ----
-    renderCumTotalCard(ytdActual26, ytdActual25, '전년 대비', ytdRevenue26);
+    renderCumTotalCard(ytdActual26, ytdActual25, '전년 대비', ytdRevenue26, ytdRevenue25);
     renderTotalBarChart(ytdActual25, ytdActual26, yesterday.getFullYear());
 
     // ---- Row7: 채널별(META/네이버/구글/쿠팡) 누적 — 시트1 월별 요약, 1월~전월 ----
@@ -1444,7 +1446,7 @@ function diffSuffixHTML(cur, prev){
   if (diff === 0) return '<br>(변동 없음)';
   return `<br>(${diff > 0 ? '▲' : '▼'} ${fmtWon(Math.abs(diff))} ${diff > 0 ? '증가' : '감소'})`;
 }
-function renderCumTotalCard(cur, prev, label, cumRevenue){
+function renderCumTotalCard(cur, prev, label, cumRevenue, cumRevenuePrev){
   const card = document.getElementById('card-total-cum');
   const pct = pctChange(cur, prev);
   const amountEl = card.querySelector('[data-field="amount"]');
@@ -1456,6 +1458,8 @@ function renderCumTotalCard(cur, prev, label, cumRevenue){
     revenueEl.classList.remove('placeholder');
     revenueEl.textContent = (cumRevenue === null || cumRevenue === undefined) ? '데이터 없음' : fmtWon(cumRevenue);
   }
+  const revenuePct = pctChange(cumRevenue, cumRevenuePrev);
+  setDelta(card, 'revenueDelta', revenuePct, '전년 동월 누적 대비');
 }
 function renderCumChannelCard(card, cur, prev, label){
   if (!card) return;
