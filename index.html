@@ -211,6 +211,14 @@
   .gate-signin-btn:hover{opacity:.9;}
   .gate-signin-btn:active{transform:scale(.98);}
   .gate-signin-btn:disabled{opacity:.6;cursor:not-allowed;}
+  .gate-static-btn{
+    width:100%;margin-top:10px;
+    background:transparent;color:var(--text-secondary);border:1px solid var(--card-border);
+    padding:12px 20px;border-radius:12px;
+    font-size:13.5px;font-weight:600;cursor:pointer;
+    transition:background .15s ease, color .15s ease;
+  }
+  .gate-static-btn:hover{background:var(--accent-soft);color:var(--text-primary);}
   .auth-gate-error{
     margin-top:14px;font-size:12.5px;color:var(--positive);
     display:none;
@@ -246,6 +254,7 @@
     <h2>Google 계정 로그인이 필요합니다</h2>
     <p>이 대시보드는 초대된 구글 계정에만 공개되어 있습니다. 시트 접근 권한이 있는 계정으로 로그인해주세요.</p>
     <button class="gate-signin-btn" id="gateSigninBtn">Google 계정으로 로그인</button>
+    <button class="gate-static-btn" id="gateStaticBtn">제공해주신 데이터로 바로 보기</button>
     <div class="auth-gate-error" id="gateError"></div>
   </div>
 </div>
@@ -412,11 +421,91 @@ const CONFIG = {
   sheet2: {
     id: '1wZfrG8my5yk7DpNNLqrrbhOQm4bQMFZko6BJjRMduYA',
     tabName: '*광고비 관련', // 실제 탭 이름이 다르면 수정
-    // ⚠️ A~F열 중 budget/spare 위치는 추정값입니다. month(A), actual=[과세]광고액, revenue=TOTAL(매출액), ratio=광고비/매출액 비중 컬럼의
-    // 실제 열 위치가 다르면 아래 cols 숫자(0=A,1=B,2=C,3=D,4=E,5=F)만 수정하세요.
-    y2025: { a1: 'A5:F17', cols: { month: 0, budget: 1, actual: 2, spare: 3, revenue: 4, ratio: 5 } },
-    y2026: { a1: 'A21:F33', cols: { month: 0, budget: 1, actual: 2, spare: 3, revenue: 4, ratio: 5 } },
+    // ✅ 실제 컬럼 확인됨: A=월, B=[과세] 매출액, C=쿠팡 매출액, D=TOTAL(매출액), E=[과세] 광고액, F=광고비/매출액 비중(%)
+    y2025: { a1: 'A5:F17', cols: { month: 0, taxRevenue: 1, coupangRevenue: 2, revenue: 3, actual: 4, ratio: 5 } },
+    y2026: { a1: 'A21:F33', cols: { month: 0, taxRevenue: 1, coupangRevenue: 2, revenue: 3, actual: 4, ratio: 5 } },
   },
+};
+
+/* =========================================================================
+   STATIC_DATA — 구글 로그인이 안 될 때 대신 쓸 수 있도록 사용자가 직접 붙여넣어 준 실제 값.
+   [일, 총광고비, 총유입매출] / [일, META, 네이버, 구글, 쿠팡] / [월, ...] 형태의 튜플 배열.
+   ========================================================================= */
+const STATIC_DATA = {
+  // 일자별 총광고비 / 총유입매출 (O8:R39 상당) — [일, 총광고비, 총유입매출]
+  dailyTotals: {
+    '26-07': [
+      [1,1238922,6239165],[2,1268509,4464454],[3,1112488,3967976],[4,908306,2940520],[5,1013608,3210010],
+      [6,1068461,5131372],[7,1114687,3577198],[8,973088,2748432],[9,934459,3651856],[10,918613,3494752],
+      [11,814166,3445164],[12,926935,3651662],[13,885454,3118652],[14,819975,2949698],[15,787770,3390469],
+      [16,806626,2668970],[17,856168,2623846],[18,780763,3134619],[19,852003,3316985],[20,864999,3821878],
+      [21,990961,3402125],[22,1094335,3708962],[23,1017416,3808521],
+    ],
+    '26-06': [
+      [1,1093069,4324510],[2,1141227,4025840],[3,1293033,4567320],[4,1179050,4460391],[5,1126736,3875470],
+      [6,956510,3005181],[7,1048638,3501430],[8,1242579,4245390],[9,1222187,4122840],[10,1107104,4425980],
+      [11,1008531,3867010],[12,1004722,4571730],[13,876477,2843740],[14,1107660,3456670],[15,1243765,3789200],
+      [16,1269552,4856340],[17,1232998,4537580],[18,1053397,4137690],[19,1114894,3560725],[20,866603,3938816],
+      [21,947557,4530782],[22,1022142,5641724],[23,994675,4108640],[24,1043162,4122740],[25,1042337,4002010],
+      [26,1117633,3928849],[27,936382,3520257],[28,991614,3829547],[29,1216446,3972345],[30,1292022,3807319],
+    ],
+  },
+  // 일자별 채널 광고비 (M:Q 상당) — [일, META, 네이버, 구글, 쿠팡]
+  dailyChannel: {
+    '26-07': [
+      [1,536475,502728,59730,139989],[2,534985,541403,45430,146691],[3,468180,438339,59730,146239],
+      [4,408510,311172,48950,139674],[5,379440,438628,58850,136690],[6,403761,504733,33000,126967],
+      [7,417312,477070,79090,141215],[8,396525,415150,47080,114333],[9,346771,397634,63360,126694],
+      [10,365326,380597,57750,114940],[11,369836,264147,43890,136293],[12,321556,387430,64900,153049],
+      [13,359520,350089,60940,114905],[14,311619,331701,49940,126715],[15,323004,310005,57860,96901],
+      [16,351994,317612,43450,93570],[17,398230,300624,63030,94284],[18,381824,243579,62370,92990],
+      [19,347519,327709,68310,108465],[20,338576,376823,52580,97020],[21,409170,405049,22330,154412],
+      [22,470874,403671,89870,129920],[23,450332,369353,81730,116001],
+    ],
+    '26-06': [
+      [1,587509,376739,36520,92301],[2,633254,350350,61600,96023],[3,780096,359036,46750,107151],
+      [4,701175,326501,67540,83834],[5,711549,287528,56100,71559],[6,594774,199006,71390,91340],
+      [7,498240,356997,59180,134221],[8,579882,479676,64130,118891],[9,537549,529725,55550,99363],
+      [10,544425,438932,45100,78647],[11,488559,364403,71720,83849],[12,502130,350622,60060,91910],
+      [13,514193,214144,49170,98970],[14,548875,361600,64020,133165],[15,611171,458516,61820,112258],
+      [16,630682,494337,56210,88323],[17,599883,467803,53900,111412],[18,507707,420777,42020,82893],
+      [19,511210,452798,66110,84776],[20,401646,294045,55220,115692],[21,377118,412598,54670,103171],
+      [22,377104,478649,61600,104789],[23,409684,430806,39930,114255],[24,414917,442943,67100,118202],
+      [25,453710,390702,51810,146115],[26,562908,385416,53900,115409],[27,530610,239821,49940,116011],
+      [28,449096,367680,42900,131938],[29,531752,505912,54010,124772],[30,535509,543526,51150,161837],
+    ],
+  },
+  // 월별 채널 광고비 누적 (마케팅팀 시트 M131:R143 / M149:R161 상당) — [월, META, 네이버, 구글, 쿠팡]
+  monthlyChannel: {
+    y2025: [
+      [1,52568968,25122933,6491100,6567631],[2,43168685,18842665,5298700,4069307],[3,40506941,19613447,8407300,6595981],
+      [4,54916469,22415738,10424700,4491642],[5,63797689,21640103,9143640,4368193],[6,28793259,19548619,4355890,1030667],
+      [7,36433042,21037717,2337500,269653],[8,36784877,15693785,2464990,1567484],[9,55813811,17387486,6402220,8103149],
+      [10,40851281,14194205,8442500,8023957],[11,38202520,25340783,6370639,7166703],[12,23283840,45107408,5343690,7979704],
+    ],
+    y2026: [
+      [1,19857325,26347915,1669250,7155225],[2,16665936,18250716,1673650,5786404],[3,16887034,21870805,1671010,6472647],
+      [4,18176569,16828813,1671780,4274349],[5,20475539,13423556,1664699,5335024],[6,16126917,11781588,1671120,3213077],
+    ],
+  },
+  // 월별 예산/실적 (*광고비 관련 시트 A5:F17 / A21:F33 상당) — [월, [과세]매출액, 쿠팡매출액, TOTAL, [과세]광고액, 비중%]
+  budget: {
+    y2025: [
+      [1,299881535,19519975,319401510,92998891,29.12],[2,250951731,15007661,265959392,72930835,27.42],
+      [3,298953153,18540177,317493330,75342597,23.73],[4,334332368,13308013,347640381,90970158,26.17],
+      [5,346226218,13097119,359323337,107194999,29.83],[6,218517403,2559700,221077103,61533399,27.83],
+      [7,226369486,5267114,231636600,64324426,27.77],[8,195726492,24960320,220686812,63093533,28.59],
+      [9,225544869,44941116,270485985,97463361,36.03],[10,235194156,47735911,282930067,79238585,28.01],
+      [11,234611167,45237862,279849029,85906992,30.70],[12,286156914,47734233,333891147,89050960,26.67],
+    ],
+    y2026: [
+      [1,177549176,48391443,225940619,55693317,24.65],[2,130352391,42185305,172537696,42136437,24.42],
+      [3,144172383,42987291,187159674,47814051,25.55],[4,125064267,33367242,158431509,42252361,26.67],
+      [5,114791879,31791599,146583478,43239170,29.50],[6,116306443,21971376,138277819,33633050,24.32],
+    ],
+  },
+  // 이 정적 데이터의 "오늘" 기준일 — 실제 접속일과 달라도 이 날짜를 어제로 보고 계산합니다.
+  asOfYesterday: '2026-07-23',
 };
 
 const CHANNELS = ['meta', 'naver', 'coupang', 'google'];
@@ -429,6 +518,7 @@ let tokenClient = null;
 let accessToken = null;
 let charts = {};
 let diag = {};
+let lastMode = null;
 const hasDataLabels = typeof window.ChartDataLabels !== 'undefined';
 
 /* =========================================================================
@@ -717,111 +807,235 @@ function quoteSheetName(name){
 }
 
 /* =========================================================================
+   데이터 수집 — 실시간(Google Sheets API) / 정적(사용자 제공 값) 두 경로
+   두 함수 모두 동일한 모양의 객체를 반환하므로, 아래 loadAll()의 계산/렌더링 로직은 그대로 재사용됩니다.
+   ========================================================================= */
+function tabToYearMonth(tab){
+  return { yy: parseInt(tab.slice(0,2),10) + 2000, mm: parseInt(tab.slice(3,5),10) };
+}
+
+function buildStaticSnapshot(){
+  const dailyRatioByTab = {};
+  const dailyChannelByTab = {};
+
+  Object.keys(STATIC_DATA.dailyTotals).forEach(tab => {
+    const { yy, mm } = tabToYearMonth(tab);
+    dailyRatioByTab[tab] = STATIC_DATA.dailyTotals[tab].map(([d, adSpend, revenue]) => ({
+      date: new Date(yy, mm-1, d), adSpend, revenue,
+      ratio: revenue ? +(adSpend/revenue*100).toFixed(2) : null,
+    }));
+  });
+  Object.keys(STATIC_DATA.dailyChannel).forEach(tab => {
+    const { yy, mm } = tabToYearMonth(tab);
+    dailyChannelByTab[tab] = STATIC_DATA.dailyChannel[tab].map(([d, meta, naver, google, coupang]) => ({
+      date: new Date(yy, mm-1, d), meta, naver, google, coupang,
+    }));
+  });
+
+  function mapBudget(rows){
+    return rows.map(([month, taxRevenue, coupangRevenue, revenue, actual, ratio]) => ({ month, revenue, actual, ratio }));
+  }
+  const rows2025 = mapBudget(STATIC_DATA.budget.y2025);
+  const rows2026 = mapBudget(STATIC_DATA.budget.y2026);
+
+  function mapMonthlyChannel(rows){
+    return rows.map(([month, meta, naver, google, coupang]) => ({ month, meta, naver, google, coupang, total: meta+naver+google+coupang }));
+  }
+  const monthlyRows2025 = mapMonthlyChannel(STATIC_DATA.monthlyChannel.y2025);
+  const monthlyRows2026 = mapMonthlyChannel(STATIC_DATA.monthlyChannel.y2026);
+
+  const neededTabs = Object.keys(STATIC_DATA.dailyTotals);
+  const curTabName = '26-07';
+  const prevTabName = '26-06';
+  const latestTabName = '26-07';
+  const ytdTabNames = Object.keys(STATIC_DATA.dailyChannel).sort();
+
+  diag.sheet1AllTabs = neededTabs;
+  diag.sheet1MonthTabs = neededTabs;
+  diag.curTab = curTabName; diag.prevTab = prevTabName; diag.latestTab = latestTabName;
+  diag.neededTabs = neededTabs;
+  diag.dailyChannelRangesUsed = {};
+  neededTabs.forEach(t => { diag.dailyChannelRangesUsed[t] = '(정적 데이터)'; });
+  diag.parsedRowCounts = {};
+  neededTabs.forEach(t => {
+    diag.parsedRowCounts[t] = { dailyRatio: (dailyRatioByTab[t]||[]).length, dailyChannel: (dailyChannelByTab[t]||[]).length };
+  });
+  diag.sheet1RangesRequested = ['(정적 데이터 사용 — API 호출 없음)'];
+  diag.sheet1RangesReturned = ['(정적 데이터 사용)'];
+  diag.sheet2RangesRequested = ['(정적 데이터 사용 — API 호출 없음)'];
+  diag.sheet2RangesReturned = ['(정적 데이터 사용)'];
+  diag.sheet2Parsed = {
+    y2025: `${rows2025.length}행 (정적 데이터)`,
+    y2026: `${rows2026.length}행 (정적 데이터)`,
+    y2025Sample: JSON.stringify(rows2025[0] || null),
+    y2026Sample: JSON.stringify(rows2026[0] || null),
+  };
+  diag.monthlyAggRows = { y2025: monthlyRows2025.length, y2026: monthlyRows2026.length };
+  diag.staticNote = '정적 데이터는 26-06·26-07 일자별 데이터만 포함하므로 "금년 누적 일평균"(Row3)은 6~7월 데이터만으로 계산됩니다.';
+
+  return { dailyRatioByTab, dailyChannelByTab, rows2025, rows2026, monthlyRows2025, monthlyRows2026, neededTabs, curTabName, prevTabName, latestTabName, ytdTabNames };
+}
+
+async function fetchLiveSnapshot(yesterday){
+  // 1) 시트1 탭 목록 조회 → YY-MM 형태의 월별 탭만 추출
+  const tabs = await getSpreadsheetTabs(CONFIG.sheet1.id);
+  diag.sheet1AllTabs = tabs;
+  const monthTabs = tabs.filter(t => CONFIG.sheet1.tabPattern.test(t));
+  diag.sheet1MonthTabs = monthTabs;
+  if (monthTabs.length === 0) throw new Error('월별 탭(예: 26-07)을 찾을 수 없습니다.');
+
+  const curTabName = tabNameOf(yesterday);
+  const prevTabName = tabNameOf(new Date(yesterday.getFullYear(), yesterday.getMonth()-1, 1));
+  const latestTabName = monthTabs.slice().sort().reverse()[0];
+  const ytdTabNames = monthTabs.filter(t => {
+    const yy = parseInt(t.slice(0,2),10) + 2000;
+    const mm = parseInt(t.slice(3,5),10);
+    return yy === yesterday.getFullYear() && (yy*100+mm) <= yyyymm(yesterday);
+  });
+  const neededTabs = Array.from(new Set([curTabName, prevTabName, ...ytdTabNames, latestTabName].filter(t => monthTabs.includes(t))));
+  diag.curTab = curTabName; diag.prevTab = prevTabName; diag.latestTab = latestTabName; diag.neededTabs = neededTabs;
+
+  function dailyChannelRangeFor(tab){
+    return CONFIG.sheet1.dailyChannel.rangeByTab[tab] || CONFIG.sheet1.dailyChannel.defaultRange;
+  }
+
+  // 2) 각 필요한 탭에서 dailyRatio, dailyChannel 범위 batchGet
+  const ranges1 = [];
+  const dailyChannelA1ByTab = {};
+  neededTabs.forEach(t => {
+    const chA1 = dailyChannelRangeFor(t);
+    dailyChannelA1ByTab[t] = chA1;
+    ranges1.push(`${quoteSheetName(t)}!${CONFIG.sheet1.dailyRatio.a1}`);
+    ranges1.push(`${quoteSheetName(t)}!${chA1}`);
+  });
+  ranges1.push(`${quoteSheetName(latestTabName)}!${CONFIG.sheet1.monthly2025.a1}`);
+  ranges1.push(`${quoteSheetName(latestTabName)}!${CONFIG.sheet1.monthly2026.a1}`);
+  diag.sheet1RangesRequested = ranges1;
+
+  const valueRanges1 = await batchGetValues(CONFIG.sheet1.id, ranges1);
+  const byRange1 = {};
+  valueRanges1.forEach(vr => { byRange1[vr.range] = vr.values || []; });
+  diag.sheet1RangesReturned = Object.keys(byRange1).map(k => `${k} (${(byRange1[k]||[]).length}행)`);
+
+  function getRows(tab, a1){
+    const key = `${quoteSheetName(tab)}!${a1}`;
+    const found = Object.keys(byRange1).find(k => k.includes(a1.split(':')[0]) && k.replace(/'/g,'').startsWith(tab));
+    return byRange1[key] || (found ? byRange1[found] : []);
+  }
+
+  // 3) 일자별 매출/광고비 파싱 (탭별)
+  function parseDailyRatioRows(rows){
+    const c = CONFIG.sheet1.dailyRatio.cols;
+    return rows.map(r => ({
+      date: parseDateCell(r[c.date]),
+      revenue: toNumber(r[c.revenue]),
+      adSpend: toNumber(r[c.adSpend]),
+      ratio: toNumber(r[c.ratio]),
+    })).filter(r => r.date && r.adSpend !== null);
+  }
+  function parseDailyChannelRows(rows){
+    const c = CONFIG.sheet1.dailyChannel.cols;
+    return rows.map(r => ({
+      date: parseDateCell(r[c.date]),
+      meta: toNumber(r[c.meta]),
+      naver: toNumber(r[c.naver]),
+      google: toNumber(r[c.google]),
+      coupang: toNumber(r[c.coupang]),
+    })).filter(r => r.date);
+  }
+
+  const dailyRatioByTab = {};
+  const dailyChannelByTab = {};
+  diag.parsedRowCounts = {};
+  diag.dailyChannelRangesUsed = {};
+  neededTabs.forEach(t => {
+    dailyRatioByTab[t] = parseDailyRatioRows(getRows(t, CONFIG.sheet1.dailyRatio.a1));
+    dailyChannelByTab[t] = parseDailyChannelRows(getRows(t, dailyChannelA1ByTab[t]));
+    diag.dailyChannelRangesUsed[t] = dailyChannelA1ByTab[t];
+    diag.parsedRowCounts[t] = { dailyRatio: dailyRatioByTab[t].length, dailyChannel: dailyChannelByTab[t].length };
+  });
+
+  // 4) 시트2: 과세 기준 예산/실적
+  const ranges2 = [
+    `${quoteSheetName(CONFIG.sheet2.tabName)}!${CONFIG.sheet2.y2025.a1}`,
+    `${quoteSheetName(CONFIG.sheet2.tabName)}!${CONFIG.sheet2.y2026.a1}`,
+  ];
+  diag.sheet2RangesRequested = ranges2;
+  let valueRanges2 = [];
+  try {
+    valueRanges2 = await batchGetValues(CONFIG.sheet2.id, ranges2);
+  } catch (e) {
+    diag.sheet2Error = e.message;
+    showBanner('두 번째 스프레드시트(과세 기준) 조회에 실패했습니다: ' + e.message, true);
+  }
+  const byRange2 = {};
+  valueRanges2.forEach(vr => { byRange2[vr.range] = vr.values || []; });
+  diag.sheet2RangesReturned = Object.keys(byRange2).map(k => `${k} (${(byRange2[k]||[]).length}행)`);
+  function getRows2(def){
+    const found = Object.keys(byRange2).find(k => k.includes(def.a1.split(':')[0]));
+    return found ? byRange2[found] : [];
+  }
+  function parseBudgetRows(rows){
+    const c = CONFIG.sheet2.y2025.cols;
+    return rows.map(r => ({
+      month: parseMonthCell(r[c.month]),
+      actual: toNumber(r[c.actual]),
+      revenue: toNumber(r[c.revenue]),
+      ratio: toNumber(r[c.ratio]),
+    })).filter(r => r.month);
+  }
+  const raw2025 = getRows2(CONFIG.sheet2.y2025);
+  const raw2026 = getRows2(CONFIG.sheet2.y2026);
+  const rows2025 = parseBudgetRows(raw2025);
+  const rows2026 = parseBudgetRows(raw2026);
+  diag.sheet2Parsed = {
+    y2025: `${raw2025.length}행 수신 → ${rows2025.length}행 파싱 성공 (월 인식 실패분 제외)`,
+    y2026: `${raw2026.length}행 수신 → ${rows2026.length}행 파싱 성공 (월 인식 실패분 제외)`,
+    y2025Sample: raw2025[0] ? JSON.stringify(raw2025[0]) : '(없음)',
+    y2026Sample: raw2026[0] ? JSON.stringify(raw2026[0]) : '(없음)',
+  };
+
+  const monthlyRows2025 = parseMonthlyAggRows(byRange1, CONFIG.sheet1.monthly2025, latestTabName);
+  const monthlyRows2026 = parseMonthlyAggRows(byRange1, CONFIG.sheet1.monthly2026, latestTabName);
+  diag.monthlyAggRows = { y2025: monthlyRows2025.length, y2026: monthlyRows2026.length };
+
+  return { dailyRatioByTab, dailyChannelByTab, rows2025, rows2026, monthlyRows2025, monthlyRows2026, neededTabs, curTabName, prevTabName, latestTabName, ytdTabNames };
+}
+
+/* =========================================================================
    데이터 로드 + 계산
    ========================================================================= */
-async function loadAll(){
+async function loadAll(source){
   hideBanner();
-  diag = { loggedIn: !!accessToken, ranAt: new Date().toLocaleString('ko-KR') };
+  const mode = source || (accessToken ? 'live' : 'static');
+  lastMode = mode;
+  diag = {
+    loggedIn: !!accessToken,
+    ranAt: new Date().toLocaleString('ko-KR'),
+    mode: mode === 'static' ? '정적 데이터(사용자 제공값)' : 'Google Sheets 실시간 연동',
+  };
   document.querySelectorAll('.card-delta, .card-sub').forEach(el => el.classList.add('skeleton'));
 
   try {
-    const today = new Date();
-    const yesterday = addDays(today, -1);
+    let yesterday;
+    if (mode === 'static') {
+      const [yy, mm, dd] = STATIC_DATA.asOfYesterday.split('-').map(Number);
+      yesterday = new Date(yy, mm-1, dd);
+    } else {
+      if (!accessToken) throw new Error('Google 계정 연동이 필요합니다.');
+      yesterday = addDays(new Date(), -1);
+    }
     const weekAgo = addDays(yesterday, -7);
     const yearStart = new Date(yesterday.getFullYear(), 0, 1);
     diag.yesterdayStr = yesterday.toLocaleDateString('ko-KR');
     diag.weekAgoStr = weekAgo.toLocaleDateString('ko-KR');
 
-    // 1) 시트1 탭 목록 조회 → YY-MM 형태의 월별 탭만 추출
-    const tabs = await getSpreadsheetTabs(CONFIG.sheet1.id);
-    diag.sheet1AllTabs = tabs;
-    const monthTabs = tabs.filter(t => CONFIG.sheet1.tabPattern.test(t));
-    diag.sheet1MonthTabs = monthTabs;
-    if (monthTabs.length === 0) throw new Error('월별 탭(예: 26-07)을 찾을 수 없습니다.');
-
-    // 필요한 탭: 어제가 속한 달, 전월, 그리고 올해 1월~어제달 사이의 모든 존재 탭
-    const curTabName = tabNameOf(yesterday);
-    const prevTabName = tabNameOf(new Date(yesterday.getFullYear(), yesterday.getMonth()-1, 1));
-    const latestTabName = monthTabs.slice().sort().reverse()[0];
-
-    const ytdTabNames = monthTabs.filter(t => {
-      const yy = parseInt(t.slice(0,2),10) + 2000;
-      const mm = parseInt(t.slice(3,5),10);
-      const val = yy*100+mm;
-      return yy === yesterday.getFullYear() && val <= yyyymm(yesterday);
-    });
-
-    const neededTabs = Array.from(new Set([curTabName, prevTabName, ...ytdTabNames, latestTabName].filter(t => monthTabs.includes(t))));
-    diag.curTab = curTabName;
-    diag.prevTab = prevTabName;
-    diag.latestTab = latestTabName;
-    diag.neededTabs = neededTabs;
-
-    // 탭별 채널(M:Q) 범위 조회 헬퍼
-    function dailyChannelRangeFor(tab){
-      return CONFIG.sheet1.dailyChannel.rangeByTab[tab] || CONFIG.sheet1.dailyChannel.defaultRange;
-    }
-
-    // 2) 각 필요한 탭에서 dailyRatio, dailyChannel 범위 batchGet
-    const ranges1 = [];
-    const dailyChannelA1ByTab = {};
-    neededTabs.forEach(t => {
-      const chA1 = dailyChannelRangeFor(t);
-      dailyChannelA1ByTab[t] = chA1;
-      ranges1.push(`${quoteSheetName(t)}!${CONFIG.sheet1.dailyRatio.a1}`);
-      ranges1.push(`${quoteSheetName(t)}!${chA1}`);
-    });
-    // 최근 탭의 월별 누적 요약 범위도 함께
-    ranges1.push(`${quoteSheetName(latestTabName)}!${CONFIG.sheet1.monthly2025.a1}`);
-    ranges1.push(`${quoteSheetName(latestTabName)}!${CONFIG.sheet1.monthly2026.a1}`);
-    diag.sheet1RangesRequested = ranges1;
-
-    const valueRanges1 = await batchGetValues(CONFIG.sheet1.id, ranges1);
-    const byRange1 = {};
-    valueRanges1.forEach(vr => { byRange1[vr.range] = vr.values || []; });
-    diag.sheet1RangesReturned = Object.keys(byRange1).map(k => `${k} (${(byRange1[k]||[]).length}행)`);
-
-    function getRows(tab, a1){
-      const key = `${quoteSheetName(tab)}!${a1}`;
-      // API가 응답의 range 표기를 다르게 줄 수 있어 매칭 유연화
-      const found = Object.keys(byRange1).find(k => k.includes(a1.split(':')[0]) && k.replace(/'/g,'').startsWith(tab));
-      return byRange1[key] || (found ? byRange1[found] : []);
-    }
-
-    // 3) 일자별 매출/광고비 파싱 (탭별)
-    function parseDailyRatioRows(rows){
-      const c = CONFIG.sheet1.dailyRatio.cols;
-      return rows.map(r => ({
-        date: parseDateCell(r[c.date]),
-        revenue: toNumber(r[c.revenue]),
-        adSpend: toNumber(r[c.adSpend]),
-        ratio: toNumber(r[c.ratio]),
-      })).filter(r => r.date && r.adSpend !== null);
-    }
-    function parseDailyChannelRows(rows){
-      const c = CONFIG.sheet1.dailyChannel.cols;
-      return rows.map(r => ({
-        date: parseDateCell(r[c.date]),
-        meta: toNumber(r[c.meta]),
-        naver: toNumber(r[c.naver]),
-        google: toNumber(r[c.google]),
-        coupang: toNumber(r[c.coupang]),
-      })).filter(r => r.date);
-    }
-
-    const dailyRatioByTab = {};
-    const dailyChannelByTab = {};
-    diag.parsedRowCounts = {};
-    diag.dailyChannelRangesUsed = {};
-    neededTabs.forEach(t => {
-      dailyRatioByTab[t] = parseDailyRatioRows(getRows(t, CONFIG.sheet1.dailyRatio.a1));
-      dailyChannelByTab[t] = parseDailyChannelRows(getRows(t, dailyChannelA1ByTab[t]));
-      diag.dailyChannelRangesUsed[t] = dailyChannelA1ByTab[t];
-      diag.parsedRowCounts[t] = {
-        dailyRatio: dailyRatioByTab[t].length,
-        dailyChannel: dailyChannelByTab[t].length,
-      };
-    });
+    const snap = mode === 'static' ? buildStaticSnapshot() : await fetchLiveSnapshot(yesterday);
+    const {
+      dailyRatioByTab, dailyChannelByTab, rows2025, rows2026,
+      monthlyRows2025, monthlyRows2026, neededTabs,
+      curTabName, prevTabName, latestTabName, ytdTabNames,
+    } = snap;
 
     function findDay(tab, date, store){
       const rows = store[tab] || [];
@@ -904,47 +1118,6 @@ async function loadAll(){
     diag.curMonthRatio = curMonthRatio;
     diag.prevMonthRatio = prevMonthRatio;
 
-    // ---- 시트2: 과세 기준 예산/실적 ----
-    const ranges2 = [
-      `${quoteSheetName(CONFIG.sheet2.tabName)}!${CONFIG.sheet2.y2025.a1}`,
-      `${quoteSheetName(CONFIG.sheet2.tabName)}!${CONFIG.sheet2.y2026.a1}`,
-    ];
-    diag.sheet2RangesRequested = ranges2;
-    let valueRanges2 = [];
-    try {
-      valueRanges2 = await batchGetValues(CONFIG.sheet2.id, ranges2);
-    } catch (e) {
-      diag.sheet2Error = e.message;
-      showBanner('두 번째 스프레드시트(과세 기준) 조회에 실패했습니다: ' + e.message, true);
-    }
-    const byRange2 = {};
-    valueRanges2.forEach(vr => { byRange2[vr.range] = vr.values || []; });
-    diag.sheet2RangesReturned = Object.keys(byRange2).map(k => `${k} (${(byRange2[k]||[]).length}행)`);
-    function getRows2(def){
-      const found = Object.keys(byRange2).find(k => k.includes(def.a1.split(':')[0]));
-      return found ? byRange2[found] : [];
-    }
-    function parseBudgetRows(rows){
-      const c = CONFIG.sheet2.y2025.cols;
-      return rows.map(r => ({
-        month: parseMonthCell(r[c.month]),
-        budget: toNumber(r[c.budget]),
-        actual: toNumber(r[c.actual]),   // [과세] 광고액
-        revenue: toNumber(r[c.revenue]), // TOTAL (매출액)
-        ratio: toNumber(r[c.ratio]),     // 시트에 이미 계산돼 있는 광고비/매출액 비중(%)
-      })).filter(r => r.month);
-    }
-    const raw2025 = getRows2(CONFIG.sheet2.y2025);
-    const raw2026 = getRows2(CONFIG.sheet2.y2026);
-    const rows2025 = parseBudgetRows(raw2025);
-    const rows2026 = parseBudgetRows(raw2026);
-    diag.sheet2Parsed = {
-      y2025: `${raw2025.length}행 수신 → ${rows2025.length}행 파싱 성공 (월 인식 실패분 제외)`,
-      y2026: `${raw2026.length}행 수신 → ${rows2026.length}행 파싱 성공 (월 인식 실패분 제외)`,
-      y2025Sample: raw2025[0] ? JSON.stringify(raw2025[0]) : '(없음)',
-      y2026Sample: raw2026[0] ? JSON.stringify(raw2026[0]) : '(없음)',
-    };
-
     const prevMonthNum2 = yesterday.getMonth(); // 1-based 전월 번호 (yesterday.getMonth()는 0-based 이번달-1 = 전월)
     diag.prevMonthNum2 = prevMonthNum2;
 
@@ -977,10 +1150,6 @@ async function loadAll(){
     renderTotalBarChart(ytdActual25, ytdActual26, yesterday.getFullYear());
 
     // ---- Row7: 채널별(META/네이버/구글/쿠팡) 누적 — 시트1 월별 요약, 1월~전월 ----
-    const monthlyRows2025 = parseMonthlyAggRows(byRange1, CONFIG.sheet1.monthly2025, latestTabName);
-    const monthlyRows2026 = parseMonthlyAggRows(byRange1, CONFIG.sheet1.monthly2026, latestTabName);
-    diag.monthlyAggRows = { y2025: monthlyRows2025.length, y2026: monthlyRows2026.length };
-
     const cumMonths2026 = monthlyRows2026.filter(r => r.month <= prevMonthNum2 && prevMonthNum2 >= 1);
     const cumMonths2025 = monthlyRows2025.filter(r => r.month <= prevMonthNum2 && prevMonthNum2 >= 1);
 
@@ -994,8 +1163,8 @@ async function loadAll(){
       diag.channelCum[ch] = { prev, cur };
     });
 
-    document.getElementById('lastUpdated').textContent = `마지막 업데이트: ${new Date().toLocaleString('ko-KR')}`;
-    document.getElementById('rangeInfo').textContent = `기준일: 어제(${yesterday.toLocaleDateString('ko-KR')}) · 사용 탭: ${neededTabs.join(', ')}`;
+    document.getElementById('lastUpdated').textContent = `마지막 업데이트: ${new Date().toLocaleString('ko-KR')} · ${diag.mode}`;
+    document.getElementById('rangeInfo').textContent = `기준일: 어제(${yesterday.toLocaleDateString('ko-KR')}) · 사용 탭: ${neededTabs.join(', ')} · 데이터 출처: ${diag.mode}`;
 
   } catch (err) {
     console.error(err);
@@ -1034,7 +1203,9 @@ function renderDiagnostics(){
   if (!el) return;
   const L = [];
   L.push(`실행 시각: ${diag.ranAt || '-'}`);
+  L.push(`데이터 출처: ${diag.mode || '-'}`);
   L.push(`로그인 상태: ${diag.loggedIn ? '✅ 연동됨' : '❌ 연동 안됨'}`);
+  if (diag.staticNote) L.push(`ℹ️ ${diag.staticNote}`);
   if (diag.lastError) L.push(`\n⚠️ 마지막 오류: ${diag.lastError}`);
   if (diag.sheet2Error) L.push(`⚠️ 시트2 오류: ${diag.sheet2Error}`);
 
@@ -1239,15 +1410,22 @@ document.addEventListener('DOMContentLoaded', () => {
   initAuth();
   renderAuthArea(false);
 
+  document.getElementById('gateStaticBtn').addEventListener('click', async () => {
+    lastMode = 'static';
+    hideGate();
+    await loadAll('static');
+  });
+
   document.getElementById('refreshBtn').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     btn.classList.add('spin');
-    if (!accessToken) {
-      showGate('세션이 만료되었습니다. 다시 로그인해 주세요.');
-      btn.classList.remove('spin');
-      return;
+    if (lastMode === 'static') {
+      await loadAll('static');
+    } else if (accessToken) {
+      await loadAll('live');
+    } else {
+      showGate('세션이 만료되었습니다. 다시 로그인하거나 제공 데이터로 보기를 선택해 주세요.');
     }
-    await loadAll();
     setTimeout(()=>btn.classList.remove('spin'), 700);
   });
 });
