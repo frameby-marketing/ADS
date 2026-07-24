@@ -318,14 +318,14 @@
 
   <!-- Row 2 : 누적 총광고비 -->
   <div class="row row-2">
+    <div class="card bar-card" id="card-total-bar">
+      <div class="card-label">누적 총 광고비 비교 <span class="tag">전월까지 vs 작년 동월까지</span> <span class="tag">과세 기준</span></div>
+      <canvas id="totalBarChart"></canvas>
+    </div>
     <div class="card no-chart" id="card-total-cum">
       <div class="card-label">누적 총 광고비 <span class="tag">전월까지 누적</span> <span class="tag">과세 기준</span></div>
       <div class="card-delta placeholder" data-field="delta">연동 필요</div>
       <div class="card-sub strong" data-field="amount">-</div>
-    </div>
-    <div class="card bar-card" id="card-total-bar">
-      <div class="card-label">누적 총 광고비 비교 <span class="tag">전월까지 vs 작년 동월까지</span> <span class="tag">과세 기준</span></div>
-      <canvas id="totalBarChart"></canvas>
     </div>
   </div>
 
@@ -361,20 +361,20 @@
     <div class="card" data-channel="google"><div class="card-label">이번달 구글 평균 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-ytdavg-google"></canvas></div></div>
   </div>
 
-  <!-- Row 6 : 연간 추이 라인차트 -->
-  <div class="row row-1">
-    <div class="card chart-card">
-      <div class="card-label">매출액 대비 광고비 추이 <span class="tag">이번년도 vs 작년</span></div>
-      <canvas id="trendChart"></canvas>
-    </div>
-  </div>
-
-  <!-- Row 7 : 채널별 누적 광고비 -->
+  <!-- Row 6 : 채널별 누적 광고비 -->
   <div class="row row-4" id="row-channel-cum">
     <div class="card" data-channel="meta"><div class="card-label">누적 META 광고비 <span class="tag">전월까지</span></div><div class="card-delta card-value-big placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div><div class="mini-chart-wrap"><canvas id="mini-cum-meta"></canvas></div></div>
     <div class="card" data-channel="naver"><div class="card-label">누적 네이버 광고비 <span class="tag">전월까지</span></div><div class="card-delta card-value-big placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div><div class="mini-chart-wrap"><canvas id="mini-cum-naver"></canvas></div></div>
     <div class="card" data-channel="coupang"><div class="card-label">누적 쿠팡 광고비 <span class="tag">전월까지</span></div><div class="card-delta card-value-big placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div><div class="mini-chart-wrap"><canvas id="mini-cum-coupang"></canvas></div></div>
     <div class="card" data-channel="google"><div class="card-label">누적 구글 광고비 <span class="tag">전월까지</span></div><div class="card-delta card-value-big placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div><div class="mini-chart-wrap"><canvas id="mini-cum-google"></canvas></div></div>
+  </div>
+
+  <!-- Row 7 : 연간 추이 라인차트 -->
+  <div class="row row-1">
+    <div class="card chart-card">
+      <div class="card-label">매출액 대비 광고비 추이 <span class="tag">이번년도 vs 작년</span></div>
+      <canvas id="trendChart"></canvas>
+    </div>
   </div>
 </main>
 
@@ -698,7 +698,7 @@ function directionClass(n){ return n > 0 ? 'up' : n < 0 ? 'down' : 'flat'; }
 function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
 // 이전값(회색) vs 현재값(오르면 빨강 / 내리면 파랑) 세로 막대 미니차트
-function renderMiniBar(canvasId, prevVal, currVal, formatFn){
+function renderMiniBar(canvasId, prevVal, currVal, formatFn, labels){
   const el = document.getElementById(canvasId);
   if (!el) return;
   if (!hasChart) return; // Chart.js 미로딩 시 그래프만 생략, 나머지 텍스트/계산에는 영향 없음
@@ -710,10 +710,11 @@ function renderMiniBar(canvasId, prevVal, currVal, formatFn){
   const key = 'mini_' + canvasId;
   if (charts[key]) charts[key].destroy();
   const labelColor = cssVar('--text-primary');
+  const barLabels = labels && labels.length === 2 ? labels : ['지난', '현재'];
   charts[key] = new Chart(el, {
     type: 'bar',
     data: {
-      labels: ['지난', '현재'],
+      labels: barLabels,
       datasets: [{
         data: [prevVal, currVal],
         backgroundColor: [gray, currColor],
@@ -1077,12 +1078,17 @@ async function fetchLiveSnapshot(yesterday){
   }
   function parseBudgetRows(rows){
     const c = CONFIG.sheet2.y2025.cols;
-    return rows.map(r => ({
-      month: parseMonthCell(r[c.month]),
-      actual: toNumber(r[c.actual]),
-      revenue: toNumber(r[c.revenue]),
-      ratio: toNumber(r[c.ratio]),
-    })).filter(r => r.month);
+    return rows.map(r => {
+      const rawRatio = toNumber(r[c.ratio]);
+      // 시트의 "비중%" 셀이 %서식이면 UNFORMATTED_VALUE가 0.29 같은 소수로 오므로 %값으로 환산
+      const ratio = (rawRatio === null || rawRatio === undefined) ? null : (Math.abs(rawRatio) <= 1 ? rawRatio * 100 : rawRatio);
+      return {
+        month: parseMonthCell(r[c.month]),
+        actual: toNumber(r[c.actual]),
+        revenue: toNumber(r[c.revenue]),
+        ratio,
+      };
+    }).filter(r => r.month);
   }
   const raw2025 = getRows2(CONFIG.sheet2.y2025);
   const raw2026 = getRows2(CONFIG.sheet2.y2026);
@@ -1177,8 +1183,8 @@ async function loadAll(source){
 
     renderSimpleCard('card-total-wow', yestTotal, pctChange(yestTotal, weekAgoTotal), '전주 대비');
     renderSimpleCard('card-total-mom', curMonthAvgSpend, pctChange(curMonthAvgSpend, prevMonthTotalAvg), '전월 일평균 대비');
-    renderMiniBar('mini-total-wow', weekAgoTotal, yestTotal, fmtWonCompact);
-    renderMiniBar('mini-total-mom', prevMonthTotalAvg, curMonthAvgSpend, fmtWonCompact);
+    renderMiniBar('mini-total-wow', weekAgoTotal, yestTotal, fmtWonCompact, ['지난주 동요일', '어제']);
+    renderMiniBar('mini-total-mom', prevMonthTotalAvg, curMonthAvgSpend, fmtWonCompact, ['지난달 일평균', '이번달 일평균']);
     diag.yestTotal = yestTotal;
     diag.weekAgoTotal = weekAgoTotal;
     diag.prevMonthTotalAvg = prevMonthTotalAvg;
@@ -1195,7 +1201,7 @@ async function loadAll(source){
       const prevMonthAvg = prevMonthRows.length ? prevMonthSum / prevMonthDayCount : null;
       const card = document.querySelector(`#row-channel-vs-prevavg [data-channel="${ch}"]`);
       renderChannelCard(card, yestVal, pctChange(yestVal, prevMonthAvg), '전월 일평균 대비');
-      renderMiniBar(`mini-prevavg-${ch}`, prevMonthAvg, yestVal, fmtWonCompact);
+      renderMiniBar(`mini-prevavg-${ch}`, prevMonthAvg, yestVal, fmtWonCompact, ['지난주 동요일', '어제']);
     });
 
     // ---- Row3: 채널별 어제 vs 금년 누적 일평균 ----
@@ -1218,7 +1224,7 @@ async function loadAll(source){
       const ytdAvg = ytdDays > 0 ? ytdSums[ch] / ytdDays : null;
       const card = document.querySelector(`#row-channel-vs-ytdavg [data-channel="${ch}"]`);
       renderChannelCard(card, curMonthAvgCh, pctChange(curMonthAvgCh, ytdAvg), '금년 누적 일평균 대비');
-      renderMiniBar(`mini-ytdavg-${ch}`, ytdAvg, curMonthAvgCh, fmtWonCompact);
+      renderMiniBar(`mini-ytdavg-${ch}`, ytdAvg, curMonthAvgCh, fmtWonCompact, ['금년 누적 일평균', '이번달 일평균']);
     });
 
     // ---- Row4-1: 매출액 대비 광고비 (이번달 누적, 실시간) vs 전달 ----
@@ -1233,7 +1239,7 @@ async function loadAll(source){
     const prevMonthRatio = prevMonthRevenue > 0 ? prevMonthSpendR / prevMonthRevenue * 100 : null;
 
     renderRatioCard('card-ratio-mtd', curMonthRatio, (curMonthRatio!==null && prevMonthRatio!==null) ? curMonthRatio - prevMonthRatio : null, '전달 대비');
-    renderMiniBar('mini-ratio-mtd', prevMonthRatio, curMonthRatio, fmtPctLabel);
+    renderMiniBar('mini-ratio-mtd', prevMonthRatio, curMonthRatio, fmtPctLabel, ['지난달', '이번달']);
     diag.curMonthRatio = curMonthRatio;
     diag.prevMonthRatio = prevMonthRatio;
 
@@ -1252,7 +1258,7 @@ async function loadAll(source){
     const ytdRatio25 = ytdRevenue25 > 0 ? ytdActual25/ytdRevenue25*100 : null;
 
     renderRatioCard('card-ratio-ytd', ytdRatio26, (ytdRatio26!==null && ytdRatio25!==null) ? ytdRatio26-ytdRatio25 : null, '전년 대비');
-    renderMiniBar('mini-ratio-ytd', ytdRatio25, ytdRatio26, fmtPctLabel);
+    renderMiniBar('mini-ratio-ytd', ytdRatio25, ytdRatio26, fmtPctLabel, ['25년 전체누적', '26년 현재까지 누적']);
     diag.ytdRatio25 = ytdRatio25;
     diag.ytdRatio26 = ytdRatio26;
     diag.ytdActual25 = ytdActual25;
@@ -1277,7 +1283,7 @@ async function loadAll(source){
       const prev = cumMonths2025.reduce((s,r)=>s+(r[ch]||0),0);
       const card = document.querySelector(`#row-channel-cum [data-channel="${ch}"]`);
       renderCumChannelCard(card, cur, prev, '전년 대비');
-      renderMiniBar(`mini-cum-${ch}`, prev, cur, fmtWonCompact);
+      renderMiniBar(`mini-cum-${ch}`, prev, cur, fmtWonCompact, [`25년 1월~${prevMonthNum2}월 누적`, `26년 1월~${prevMonthNum2}월 누적`]);
       diag.channelCum[ch] = { prev, cur };
     });
 
@@ -1421,17 +1427,31 @@ function diffSuffix(cur, prev){
   if (diff === 0) return ' (변동 없음)';
   return ` (${diff > 0 ? '▲' : '▼'} ${fmtWon(Math.abs(diff))} ${diff > 0 ? '증가' : '감소'})`;
 }
+function diffSuffixHTML(cur, prev){
+  if (cur === null || cur === undefined || prev === null || prev === undefined) return '';
+  const diff = cur - prev;
+  if (diff === 0) return '<br>(변동 없음)';
+  return `<br>(${diff > 0 ? '▲' : '▼'} ${fmtWon(Math.abs(diff))} ${diff > 0 ? '증가' : '감소'})`;
+}
 function renderCumTotalCard(cur, prev, label){
   const card = document.getElementById('card-total-cum');
   const pct = pctChange(cur, prev);
-  setDelta(card, 'delta', pct, label);
+  const el = card.querySelector('[data-field="delta"]');
+  el.classList.remove('placeholder');
+  if (pct === null || pct === undefined) {
+    el.innerHTML = `${label}<br>데이터 없음`;
+  } else {
+    el.innerHTML = `${label}<br>${arrow(pct)} ${Math.abs(pct).toFixed(1)}%`;
+  }
+  el.className = el.className.split(' ').filter(c=>!['up','down','flat'].includes(c)).join(' ');
+  el.classList.add(directionClass(pct));
   card.querySelector('[data-field="amount"]').textContent = `${fmtWon(prev)} → ${fmtWon(cur)}${diffSuffix(cur, prev)}`;
 }
 function renderCumChannelCard(card, cur, prev, label){
   if (!card) return;
   const pct = pctChange(cur, prev);
   setDelta(card, 'delta', pct, label);
-  card.querySelector('[data-field="amount"]').textContent = `${fmtWon(prev)} → ${fmtWon(cur)}${diffSuffix(cur, prev)}`;
+  card.querySelector('[data-field="amount"]').innerHTML = `${fmtWon(prev)} → ${fmtWon(cur)}${diffSuffixHTML(cur, prev)}`;
 }
 
 function chartColors(){
@@ -1481,7 +1501,7 @@ function renderTrendChart(rows2025, rows2026, lastMonth){
       plugins: {
         legend: {
           labels: {
-            color: colors.text,
+            color: '#ffffff',
             usePointStyle: true,
             pointStyle: 'rect',
             boxWidth: 10,
