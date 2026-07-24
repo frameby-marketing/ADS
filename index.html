@@ -6,6 +6,7 @@
 <title>광고 대시보드</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <style>
   :root{
     --bg:#0b0d12;
@@ -149,8 +150,12 @@
   }
   .card-delta{font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.15;}
   .card-delta.small{font-size:20px;}
+  .card-delta.tiny{font-size:16px;}
   .card-sub{font-size:13px;color:var(--text-muted);font-weight:500;}
   .card-sub.strong{font-size:15px;color:var(--text-secondary);font-weight:600;}
+  .mini-chart-wrap{position:relative;height:78px;margin:2px 0 0;}
+  .mini-chart-wrap canvas{width:100% !important;height:100% !important;}
+  .card:has(.mini-chart-wrap){min-height:210px;}
   .up{color:var(--positive);}
   .down{color:var(--negative);}
   .flat{color:var(--text-muted);}
@@ -223,42 +228,46 @@
   <div class="row row-2">
     <div class="card" id="card-total-wow">
       <div class="card-label">어제 총 광고금액 <span class="tag">전주 대비</span></div>
-      <div class="card-delta placeholder" data-field="delta">연동 필요</div>
+      <div class="mini-chart-wrap"><canvas id="mini-total-wow"></canvas></div>
+      <div class="card-delta tiny placeholder" data-field="delta">연동 필요</div>
       <div class="card-sub" data-field="amount">-</div>
     </div>
     <div class="card" id="card-total-mom">
       <div class="card-label">어제 총 광고금액 <span class="tag">전월 대비</span></div>
-      <div class="card-delta placeholder" data-field="delta">연동 필요</div>
+      <div class="mini-chart-wrap"><canvas id="mini-total-mom"></canvas></div>
+      <div class="card-delta tiny placeholder" data-field="delta">연동 필요</div>
       <div class="card-sub" data-field="amount">-</div>
     </div>
   </div>
 
   <!-- Row 2 : 채널별 어제 vs 전월 일평균 -->
   <div class="row row-4" id="row-channel-vs-prevavg">
-    <div class="card" data-channel="meta"><div class="card-label">어제 META 광고 금액 <span class="tag">전월 일평균 대비</span></div><div class="card-delta placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
-    <div class="card" data-channel="naver"><div class="card-label">어제 네이버 광고 금액 <span class="tag">전월 일평균 대비</span></div><div class="card-delta placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
-    <div class="card" data-channel="coupang"><div class="card-label">어제 쿠팡 광고 금액 <span class="tag">전월 일평균 대비</span></div><div class="card-delta placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
-    <div class="card" data-channel="google"><div class="card-label">어제 구글 광고 금액 <span class="tag">전월 일평균 대비</span></div><div class="card-delta placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
+    <div class="card" data-channel="meta"><div class="card-label">어제 META 광고 금액 <span class="tag">전월 일평균 대비</span></div><div class="mini-chart-wrap"><canvas id="mini-prevavg-meta"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
+    <div class="card" data-channel="naver"><div class="card-label">어제 네이버 광고 금액 <span class="tag">전월 일평균 대비</span></div><div class="mini-chart-wrap"><canvas id="mini-prevavg-naver"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
+    <div class="card" data-channel="coupang"><div class="card-label">어제 쿠팡 광고 금액 <span class="tag">전월 일평균 대비</span></div><div class="mini-chart-wrap"><canvas id="mini-prevavg-coupang"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
+    <div class="card" data-channel="google"><div class="card-label">어제 구글 광고 금액 <span class="tag">전월 일평균 대비</span></div><div class="mini-chart-wrap"><canvas id="mini-prevavg-google"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
   </div>
 
   <!-- Row 3 : 채널별 어제 vs 금년 누적 일평균 -->
   <div class="row row-4" id="row-channel-vs-ytdavg">
-    <div class="card" data-channel="meta"><div class="card-label">어제 META 광고 금액 <span class="tag">금년 누적 일평균 대비</span></div><div class="card-delta placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
-    <div class="card" data-channel="naver"><div class="card-label">어제 네이버 광고 금액 <span class="tag">금년 누적 일평균 대비</span></div><div class="card-delta placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
-    <div class="card" data-channel="coupang"><div class="card-label">어제 쿠팡 광고 금액 <span class="tag">금년 누적 일평균 대비</span></div><div class="card-delta placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
-    <div class="card" data-channel="google"><div class="card-label">어제 구글 광고 금액 <span class="tag">금년 누적 일평균 대비</span></div><div class="card-delta placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
+    <div class="card" data-channel="meta"><div class="card-label">어제 META 광고 금액 <span class="tag">금년 누적 일평균 대비</span></div><div class="mini-chart-wrap"><canvas id="mini-ytdavg-meta"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
+    <div class="card" data-channel="naver"><div class="card-label">어제 네이버 광고 금액 <span class="tag">금년 누적 일평균 대비</span></div><div class="mini-chart-wrap"><canvas id="mini-ytdavg-naver"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
+    <div class="card" data-channel="coupang"><div class="card-label">어제 쿠팡 광고 금액 <span class="tag">금년 누적 일평균 대비</span></div><div class="mini-chart-wrap"><canvas id="mini-ytdavg-coupang"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
+    <div class="card" data-channel="google"><div class="card-label">어제 구글 광고 금액 <span class="tag">금년 누적 일평균 대비</span></div><div class="mini-chart-wrap"><canvas id="mini-ytdavg-google"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
   </div>
 
   <!-- Row 4 : 매출액 대비 광고비 -->
   <div class="row row-2">
     <div class="card" id="card-ratio-mtd">
       <div class="card-label">매출액 대비 광고비 <span class="tag">이번달 누적</span> <span class="tag">실시간 집계</span></div>
-      <div class="card-delta placeholder" data-field="ratio">연동 필요</div>
+      <div class="mini-chart-wrap"><canvas id="mini-ratio-mtd"></canvas></div>
+      <div class="card-delta tiny placeholder" data-field="ratio">연동 필요</div>
       <div class="card-sub" data-field="deltap">전달 대비 -</div>
     </div>
     <div class="card" id="card-ratio-ytd">
       <div class="card-label">매출액 대비 광고비 <span class="tag">금년 누적(전월까지)</span> <span class="tag">과세 기준</span></div>
-      <div class="card-delta placeholder" data-field="ratio">연동 필요</div>
+      <div class="mini-chart-wrap"><canvas id="mini-ratio-ytd"></canvas></div>
+      <div class="card-delta tiny placeholder" data-field="ratio">연동 필요</div>
       <div class="card-sub" data-field="deltap">전년 대비 -</div>
     </div>
   </div>
@@ -274,8 +283,9 @@
   <!-- Row 6 : 누적 총광고비 -->
   <div class="row row-2">
     <div class="card" id="card-total-cum">
-      <div class="card-label">누적 총 광고비 <span class="tag">전월까지 누적</span> <span class="tag">전년 대비</span></div>
-      <div class="card-delta placeholder" data-field="delta">연동 필요</div>
+      <div class="card-label">누적 총 광고비 <span class="tag">전월까지 누적</span> <span class="tag">전년 대비</span> <span class="tag">과세 기준</span></div>
+      <div class="mini-chart-wrap"><canvas id="mini-total-cum"></canvas></div>
+      <div class="card-delta tiny placeholder" data-field="delta">연동 필요</div>
       <div class="card-sub strong" data-field="amount">-</div>
     </div>
     <div class="card bar-card" id="card-total-bar">
@@ -286,16 +296,16 @@
 
   <!-- Row 7 : 채널별 누적 광고비 -->
   <div class="row row-4" id="row-channel-cum">
-    <div class="card" data-channel="meta"><div class="card-label">누적 META 광고비 <span class="tag">전월까지</span> <span class="tag">전년 대비</span></div><div class="card-delta placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
-    <div class="card" data-channel="naver"><div class="card-label">누적 네이버 광고비 <span class="tag">전월까지</span> <span class="tag">전년 대비</span></div><div class="card-delta placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
-    <div class="card" data-channel="coupang"><div class="card-label">누적 쿠팡 광고비 <span class="tag">전월까지</span> <span class="tag">전년 대비</span></div><div class="card-delta placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
-    <div class="card" data-channel="google"><div class="card-label">누적 구글 광고비 <span class="tag">전월까지</span> <span class="tag">전년 대비</span></div><div class="card-delta placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
+    <div class="card" data-channel="meta"><div class="card-label">누적 META 광고비 <span class="tag">전월까지</span> <span class="tag">전년 대비</span></div><div class="mini-chart-wrap"><canvas id="mini-cum-meta"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
+    <div class="card" data-channel="naver"><div class="card-label">누적 네이버 광고비 <span class="tag">전월까지</span> <span class="tag">전년 대비</span></div><div class="mini-chart-wrap"><canvas id="mini-cum-naver"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
+    <div class="card" data-channel="coupang"><div class="card-label">누적 쿠팡 광고비 <span class="tag">전월까지</span> <span class="tag">전년 대비</span></div><div class="mini-chart-wrap"><canvas id="mini-cum-coupang"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
+    <div class="card" data-channel="google"><div class="card-label">누적 구글 광고비 <span class="tag">전월까지</span> <span class="tag">전년 대비</span></div><div class="mini-chart-wrap"><canvas id="mini-cum-google"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
   </div>
 </main>
 
 <footer class="note">
   ※ 이 대시보드는 두 개의 구글 스프레드시트(마케팅팀 광고채널별 현황 / 월별 예산 수립·실적비교)에 연동되어 있으며, 로그인한 구글 계정이 해당 시트에 접근 권한이 있어야 데이터가 표시됩니다.<br/>
-  ※ 컬럼 배치(META/네이버/쿠팡/구글 순서, 매출·광고비·비율 열 위치 등)는 스크립트 상단 <code>CONFIG</code> 객체에 추정값으로 설정되어 있습니다. 실제 시트 열 순서와 다르면 CONFIG의 열 인덱스만 수정하면 전체 대시보드에 반영됩니다.<br/>
+  ※ 컬럼 배치는 스크립트 상단 <code>CONFIG</code> 객체에 설정되어 있습니다. 특히 <code>sheet2.y2025 / y2026</code>의 <code>budget/spare</code> 열 위치는 추정값이니, "월별 예산 수립 & 실적 비교" 시트의 실제 A~F열 구성(TOTAL=매출액, [과세] 광고액, 비중% 컬럼이 각각 몇 열인지)에 맞춰 <code>cols</code> 숫자(0=A,1=B,2=C,3=D,4=E,5=F)를 확인해 주세요.<br/>
   ※ Google Cloud Console의 OAuth 클라이언트에 이 파일을 여는 주소(예: http://localhost:5500)가 "승인된 자바스크립트 원본"으로 등록되어 있어야 로그인이 동작합니다. file:// 로 직접 열면 동작하지 않습니다.
 </footer>
 
@@ -313,20 +323,23 @@ const CONFIG = {
     // 월별 탭 이름 패턴: YY-MM (예: '26-07'). 아래 함수로 자동 생성됨.
     tabPattern: /^\d{2}-\d{2}$/,
     // 일자별 매출액 대비 광고비 (각 월 탭 내부)
-    dailyRatio: { a1: 'O7:R41', cols: { date: 0, revenue: 1, adSpend: 2, ratio: 3 } },
+    // ⚠️ P열=광고비(adSpend), Q열=매출액(revenue) 순서로 수정됨 (이전에 반대로 매핑되어 ROAS처럼 보였던 문제 수정)
+    dailyRatio: { a1: 'O7:R41', cols: { date: 0, adSpend: 1, revenue: 2, ratio: 3 } },
     // 일자별 채널별 광고비 (각 월 탭 내부)
     dailyChannel: { a1: 'M63:Q97', cols: { date: 0, meta: 1, naver: 2, google: 3, coupang: 4 } },
-    // 25년/26년 월별 누적 요약 (가장 최근 월 탭에 존재한다고 가정)
-    monthly2025: { a1: 'M131:R145', cols: { month: 0, meta: 1, naver: 2, google: 3, coupang: 4, total: 5 } },
-    monthly2026: { a1: 'M149:R163', cols: { month: 0, meta: 1, naver: 2, google: 3, coupang: 4, total: 5 } },
+    // 25년/26년 채널별(META/네이버/구글/쿠팡) 월별 누적 요약 — 26-07(최신) 탭 내부에 고정 위치
+    monthly2025: { a1: 'M131:R143', cols: { month: 0, meta: 1, naver: 2, google: 3, coupang: 4, total: 5 } },
+    monthly2026: { a1: 'M149:R161', cols: { month: 0, meta: 1, naver: 2, google: 3, coupang: 4, total: 5 } },
   },
 
   // 월별 예산 수립 & 실적 비교 (과세 기준)
   sheet2: {
     id: '1wZfrG8my5yk7DpNNLqrrbhOQm4bQMFZko6BJjRMduYA',
     tabName: '*광고비 관련', // 실제 탭 이름이 다르면 수정
-    y2025: { a1: 'A5:F18', cols: { month: 0, budget: 1, actual: 2, revenue: 3, ratio: 4, note: 5 } },
-    y2026: { a1: 'A21:F34', cols: { month: 0, budget: 1, actual: 2, revenue: 3, ratio: 4, note: 5 } },
+    // ⚠️ A~F열 중 budget/spare 위치는 추정값입니다. month(A), actual=[과세]광고액, revenue=TOTAL(매출액), ratio=광고비/매출액 비중 컬럼의
+    // 실제 열 위치가 다르면 아래 cols 숫자(0=A,1=B,2=C,3=D,4=E,5=F)만 수정하세요.
+    y2025: { a1: 'A5:F17', cols: { month: 0, budget: 1, actual: 2, spare: 3, revenue: 4, ratio: 5 } },
+    y2026: { a1: 'A21:F33', cols: { month: 0, budget: 1, actual: 2, spare: 3, revenue: 4, ratio: 5 } },
   },
 };
 
@@ -338,7 +351,8 @@ const CHANNEL_LABEL = { meta: 'META', naver: '네이버', coupang: '쿠팡', goo
    ========================================================================= */
 let tokenClient = null;
 let accessToken = null;
-let charts = { trend: null, totalBar: null };
+let charts = {};
+const hasDataLabels = typeof window.ChartDataLabels !== 'undefined';
 
 /* =========================================================================
    유틸
@@ -409,8 +423,65 @@ function fmtPct(n, digits=1){
   const sign = n > 0 ? '+' : '';
   return sign + n.toFixed(digits) + '%';
 }
+function fmtWonCompact(n){
+  if (n === null || n === undefined || isNaN(n)) return '';
+  const v = Math.round(n);
+  const abs = Math.abs(v);
+  if (abs >= 100000000) return (v/100000000).toFixed(1) + '억';
+  if (abs >= 10000) return (v/10000).toFixed(0) + '만';
+  return v.toLocaleString('ko-KR');
+}
+function fmtPctLabel(n){
+  if (n === null || n === undefined || isNaN(n)) return '';
+  return n.toFixed(1) + '%';
+}
 function arrow(n){ return n > 0 ? '▲' : n < 0 ? '▼' : '－'; }
 function directionClass(n){ return n > 0 ? 'up' : n < 0 ? 'down' : 'flat'; }
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+// 이전값(회색) vs 현재값(오르면 빨강 / 내리면 파랑) 세로 막대 미니차트
+function renderMiniBar(canvasId, prevVal, currVal, formatFn){
+  const el = document.getElementById(canvasId);
+  if (!el) return;
+  const gray = cssVar('--text-muted');
+  let currColor = gray;
+  if (prevVal !== null && prevVal !== undefined && currVal !== null && currVal !== undefined) {
+    currColor = currVal > prevVal ? cssVar('--positive') : (currVal < prevVal ? cssVar('--negative') : gray);
+  }
+  const key = 'mini_' + canvasId;
+  if (charts[key]) charts[key].destroy();
+  const labelColor = cssVar('--text-primary');
+  charts[key] = new Chart(el, {
+    type: 'bar',
+    data: {
+      labels: ['이전', '현재'],
+      datasets: [{
+        data: [prevVal, currVal],
+        backgroundColor: [gray, currColor],
+        borderRadius: 5,
+        maxBarThickness: 42,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 16 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: true },
+        datalabels: hasDataLabels ? {
+          anchor: 'end', align: 'top', color: labelColor, font: { size: 10, weight: '700' },
+          formatter: (v) => (v === null || v === undefined) ? '' : formatFn(v),
+        } : false,
+      },
+      scales: {
+        x: { display: false },
+        y: { display: false, beginAtZero: true },
+      },
+    },
+    plugins: hasDataLabels ? [ChartDataLabels] : [],
+  });
+}
 
 function pctChange(curr, base){
   if (curr === null || base === null || base === 0) return null;
@@ -647,6 +718,8 @@ async function loadAll(){
 
     renderSimpleCard('card-total-wow', yestTotal, pctChange(yestTotal, weekAgoTotal));
     renderSimpleCard('card-total-mom', yestTotal, pctChange(yestTotal, lastMonthDayTotal));
+    renderMiniBar('mini-total-wow', weekAgoTotal, yestTotal, fmtWonCompact);
+    renderMiniBar('mini-total-mom', lastMonthDayTotal, yestTotal, fmtWonCompact);
 
     // ---- Row2: 채널별 어제 vs 전월 일평균 ----
     const prevMonthRows = dailyChannelByTab[prevTabName] || [];
@@ -662,6 +735,7 @@ async function loadAll(){
       const prevMonthAvg = prevMonthRows.length ? prevMonthSum / prevMonthDayCount : null;
       const card = document.querySelector(`#row-channel-vs-prevavg [data-channel="${ch}"]`);
       renderChannelCard(card, yestVal, pctChange(yestVal, prevMonthAvg));
+      renderMiniBar(`mini-prevavg-${ch}`, prevMonthAvg, yestVal, fmtWonCompact);
     });
 
     // ---- Row3: 채널별 어제 vs 금년 누적 일평균 ----
@@ -681,6 +755,7 @@ async function loadAll(){
       const ytdAvg = ytdDays > 0 ? ytdSums[ch] / ytdDays : null;
       const card = document.querySelector(`#row-channel-vs-ytdavg [data-channel="${ch}"]`);
       renderChannelCard(card, yestVal, pctChange(yestVal, ytdAvg));
+      renderMiniBar(`mini-ytdavg-${ch}`, ytdAvg, yestVal, fmtWonCompact);
     });
 
     // ---- Row4-1: 매출액 대비 광고비 (이번달 누적, 실시간) vs 전달 ----
@@ -695,6 +770,7 @@ async function loadAll(){
     const prevMonthRatio = prevMonthRevenue > 0 ? prevMonthSpendR / prevMonthRevenue * 100 : null;
 
     renderRatioCard('card-ratio-mtd', curMonthRatio, (curMonthRatio!==null && prevMonthRatio!==null) ? curMonthRatio - prevMonthRatio : null, '전달 대비');
+    renderMiniBar('mini-ratio-mtd', prevMonthRatio, curMonthRatio, fmtPctLabel);
 
     // ---- 시트2: 과세 기준 예산/실적 ----
     const ranges2 = [
@@ -718,22 +794,17 @@ async function loadAll(){
       return rows.map(r => ({
         month: parseMonthCell(r[c.month]),
         budget: toNumber(r[c.budget]),
-        actual: toNumber(r[c.actual]),
-        revenue: toNumber(r[c.revenue]),
-        ratio: toNumber(r[c.ratio]),
+        actual: toNumber(r[c.actual]),   // [과세] 광고액
+        revenue: toNumber(r[c.revenue]), // TOTAL (매출액)
+        ratio: toNumber(r[c.ratio]),     // 시트에 이미 계산돼 있는 광고비/매출액 비중(%)
       })).filter(r => r.month);
     }
     const rows2025 = parseBudgetRows(getRows2(CONFIG.sheet2.y2025));
     const rows2026 = parseBudgetRows(getRows2(CONFIG.sheet2.y2026));
 
-    function ratioOf(row){
-      if (!row) return null;
-      if (row.actual !== null && row.revenue) return row.actual / row.revenue * 100;
-      return row.ratio;
-    }
-
     const prevMonthNum2 = yesterday.getMonth(); // 1-based 전월 번호 (yesterday.getMonth()는 0-based 이번달-1 = 전월)
-    // 금년 누적(전월까지)
+
+    // 금년 누적(전월까지) — [과세] 광고액 합 / TOTAL(매출액) 합
     const ytdRows2026 = rows2026.filter(r => r.month <= prevMonthNum2 && prevMonthNum2 >= 1);
     const ytdRevenue26 = ytdRows2026.reduce((s,r)=>s+(r.revenue||0),0);
     const ytdActual26 = ytdRows2026.reduce((s,r)=>s+(r.actual||0),0);
@@ -745,27 +816,29 @@ async function loadAll(){
     const ytdRatio25 = ytdRevenue25 > 0 ? ytdActual25/ytdRevenue25*100 : null;
 
     renderRatioCard('card-ratio-ytd', ytdRatio26, (ytdRatio26!==null && ytdRatio25!==null) ? ytdRatio26-ytdRatio25 : null, '전년 대비');
+    renderMiniBar('mini-ratio-ytd', ytdRatio25, ytdRatio26, fmtPctLabel);
 
-    // ---- Row5: 연간 추이 라인차트 (월별 비율, 26년 vs 25년) ----
-    renderTrendChart(rows2025, rows2026);
+    // ---- Row5: 연간 추이 라인차트 (1월~전월, 시트에 이미 있는 광고비/매출액 비중(%) 사용) ----
+    renderTrendChart(rows2025, rows2026, prevMonthNum2);
 
-    // ---- Row6, Row7: 시트1 월별 누적 요약 (monthly2025 / monthly2026) ----
+    // ---- Row6: 누적 총 광고비 ([과세] 광고액 기준, 전월까지 누적) ----
+    renderCumTotalCard(ytdActual26, ytdActual25);
+    renderMiniBar('mini-total-cum', ytdActual25, ytdActual26, fmtWonCompact);
+    renderTotalBarChart(ytdActual25, ytdActual26, yesterday.getFullYear());
+
+    // ---- Row7: 채널별(META/네이버/구글/쿠팡) 누적 — 시트1 월별 요약, 1월~전월 ----
     const monthlyRows2025 = parseMonthlyAggRows(byRange1, CONFIG.sheet1.monthly2025, latestTabName);
     const monthlyRows2026 = parseMonthlyAggRows(byRange1, CONFIG.sheet1.monthly2026, latestTabName);
 
     const cumMonths2026 = monthlyRows2026.filter(r => r.month <= prevMonthNum2 && prevMonthNum2 >= 1);
     const cumMonths2025 = monthlyRows2025.filter(r => r.month <= prevMonthNum2 && prevMonthNum2 >= 1);
 
-    const cumTotal26 = cumMonths2026.reduce((s,r)=>s+(r.total||0),0);
-    const cumTotal25 = cumMonths2025.reduce((s,r)=>s+(r.total||0),0);
-    renderCumTotalCard(cumTotal26, cumTotal25);
-    renderTotalBarChart(cumTotal25, cumTotal26, yesterday.getFullYear());
-
     CHANNELS.forEach(ch => {
       const cur = cumMonths2026.reduce((s,r)=>s+(r[ch]||0),0);
       const prev = cumMonths2025.reduce((s,r)=>s+(r[ch]||0),0);
       const card = document.querySelector(`#row-channel-cum [data-channel="${ch}"]`);
       renderCumChannelCard(card, cur, prev);
+      renderMiniBar(`mini-cum-${ch}`, prev, cur, fmtWonCompact);
     });
 
     document.getElementById('lastUpdated').textContent = `마지막 업데이트: ${new Date().toLocaleString('ko-KR')}`;
@@ -837,53 +910,66 @@ function chartColors(){
   return {
     grid: isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)',
     text: isDark ? '#9aa2b1' : '#5b6270',
-    line2025: '#9aa2b1',
-    line2026: '#6c7bff',
-    bar2025: '#9aa2b1',
-    bar2026: '#6c7bff',
+    red: cssVar('--positive'),
+    blue: cssVar('--negative'),
+    gray: cssVar('--text-muted'),
   };
 }
 
-function renderTrendChart(rows2025, rows2026){
+// Row5: 매출액 대비 광고비 추이 — 1월~전월, 25년(빨강/얇은선) vs 26년(파랑/굵은선), 점 위에 % 라벨
+function renderTrendChart(rows2025, rows2026, lastMonth){
   const ctx = document.getElementById('trendChart');
   const colors = chartColors();
-  const labels = Array.from({length:12}, (_,i)=>`${i+1}월`);
-  const data2025 = labels.map((_,i) => {
-    const r = rows2025.find(x=>x.month===i+1);
-    if (!r) return null;
-    if (r.actual !== null && r.revenue) return +(r.actual/r.revenue*100).toFixed(2);
-    return r.ratio;
-  });
-  const data2026 = labels.map((_,i) => {
-    const r = rows2026.find(x=>x.month===i+1);
-    if (!r) return null;
-    if (r.actual !== null && r.revenue) return +(r.actual/r.revenue*100).toFixed(2);
-    return r.ratio;
-  });
+  const monthCount = Math.max(lastMonth || 12, 1);
+  const labels = Array.from({length: monthCount}, (_,i)=>`${i+1}월`);
+
+  function ratioOf(row){
+    if (!row) return null;
+    if (row.ratio !== null && row.ratio !== undefined) return row.ratio;
+    if (row.actual !== null && row.revenue) return +(row.actual/row.revenue*100).toFixed(2);
+    return null;
+  }
+  const data2025 = labels.map((_,i) => ratioOf(rows2025.find(x=>x.month===i+1)));
+  const data2026 = labels.map((_,i) => ratioOf(rows2026.find(x=>x.month===i+1)));
+
   if (charts.trend) charts.trend.destroy();
   charts.trend = new Chart(ctx, {
     type: 'line',
     data: {
       labels,
       datasets: [
-        { label: '작년(25년)', data: data2025, borderColor: colors.line2025, backgroundColor: 'transparent', tension: .3, spanGaps: true },
-        { label: '올해(26년)', data: data2026, borderColor: colors.line2026, backgroundColor: 'transparent', tension: .3, spanGaps: true, borderWidth: 3 },
+        { label: '작년(25년)', data: data2025, borderColor: colors.red, backgroundColor: 'transparent', tension: .25, spanGaps: true, borderWidth: 2, pointRadius: 3,
+          datalabels: { color: colors.red, align: 'bottom', offset: 6 } },
+        { label: '올해(26년)', data: data2026, borderColor: colors.blue, backgroundColor: 'transparent', tension: .25, spanGaps: true, borderWidth: 4, pointRadius: 4,
+          datalabels: { color: colors.blue, align: 'top', offset: 6 } },
       ],
     },
     options: {
       responsive: true,
-      plugins: { legend: { labels: { color: colors.text } } },
+      plugins: {
+        legend: { labels: { color: colors.text } },
+        datalabels: hasDataLabels ? {
+          font: { size: 10, weight: '700' },
+          formatter: (v) => (v === null || v === undefined) ? '' : v.toFixed(2) + '%',
+        } : false,
+      },
       scales: {
         x: { ticks: { color: colors.text }, grid: { color: colors.grid } },
         y: { ticks: { color: colors.text, callback: v => v + '%' }, grid: { color: colors.grid } },
       },
     },
+    plugins: hasDataLabels ? [ChartDataLabels] : [],
   });
 }
 
+// Row6-2: 누적 총 광고비 비교 (전월까지 vs 작년 동월까지) — 이전=회색, 현재=오르면 빨강/내리면 파랑
 function renderTotalBarChart(prevYearTotal, curYearTotal, year){
   const ctx = document.getElementById('totalBarChart');
   const colors = chartColors();
+  let currColor = colors.gray;
+  if (prevYearTotal !== null && curYearTotal !== null) {
+    currColor = curYearTotal > prevYearTotal ? colors.red : (curYearTotal < prevYearTotal ? colors.blue : colors.gray);
+  }
   if (charts.totalBar) charts.totalBar.destroy();
   charts.totalBar = new Chart(ctx, {
     type: 'bar',
@@ -892,19 +978,26 @@ function renderTotalBarChart(prevYearTotal, curYearTotal, year){
       datasets: [{
         label: '누적 총 광고비',
         data: [prevYearTotal, curYearTotal],
-        backgroundColor: [colors.bar2025, colors.bar2026],
+        backgroundColor: [colors.gray, currColor],
         borderRadius: 6,
       }],
     },
     options: {
       indexAxis: 'y',
       responsive: true,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        datalabels: hasDataLabels ? {
+          anchor: 'end', align: 'end', color: colors.text, font: { size: 11, weight: '700' },
+          formatter: (v) => fmtWon(v),
+        } : false,
+      },
       scales: {
         x: { ticks: { color: colors.text, callback: v => Number(v).toLocaleString('ko-KR') }, grid: { color: colors.grid } },
         y: { ticks: { color: colors.text }, grid: { display: false } },
       },
     },
+    plugins: hasDataLabels ? [ChartDataLabels] : [],
   });
 }
 
