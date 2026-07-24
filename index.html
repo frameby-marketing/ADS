@@ -158,6 +158,8 @@
   .mini-chart-wrap canvas{width:100% !important;height:100% !important;}
   .card:has(.mini-chart-wrap){min-height:280px;}
   .card.no-chart{justify-content:center;min-height:220px;}
+  #card-total-cum [data-field="delta"]{margin-top:12px;line-height:1.4;}
+  #card-total-cum [data-field="amount"]{margin-top:12px;line-height:1.5;}
   .up{color:var(--positive);}
   .down{color:var(--negative);}
   .flat{color:var(--text-muted);}
@@ -1258,7 +1260,7 @@ async function loadAll(source){
     const ytdRatio25 = ytdRevenue25 > 0 ? ytdActual25/ytdRevenue25*100 : null;
 
     renderRatioCard('card-ratio-ytd', ytdRatio26, (ytdRatio26!==null && ytdRatio25!==null) ? ytdRatio26-ytdRatio25 : null, '전년 대비');
-    renderMiniBar('mini-ratio-ytd', ytdRatio25, ytdRatio26, fmtPctLabel, ['25년 전체누적', '26년 현재까지 누적']);
+    renderMiniBar('mini-ratio-ytd', ytdRatio25, ytdRatio26, fmtPctLabel, [`25년 1월~${prevMonthNum2}월 누적`, `26년 1월~${prevMonthNum2}월 누적`]);
     diag.ytdRatio25 = ytdRatio25;
     diag.ytdRatio26 = ytdRatio26;
     diag.ytdActual25 = ytdActual25;
@@ -1445,7 +1447,13 @@ function renderCumTotalCard(cur, prev, label){
   }
   el.className = el.className.split(' ').filter(c=>!['up','down','flat'].includes(c)).join(' ');
   el.classList.add(directionClass(pct));
-  card.querySelector('[data-field="amount"]').textContent = `${fmtWon(prev)} → ${fmtWon(cur)}${diffSuffix(cur, prev)}`;
+  const amountEl = card.querySelector('[data-field="amount"]');
+  const diffVal = (cur !== null && cur !== undefined && prev !== null && prev !== undefined) ? cur - prev : null;
+  if (diffVal === null) {
+    amountEl.textContent = `${fmtWon(prev)} → ${fmtWon(cur)}`;
+  } else {
+    amountEl.innerHTML = `${arrow(diffVal)} ${fmtWon(prev)} → ${fmtWon(cur)}${diffSuffixHTML(cur, prev)}`;
+  }
 }
 function renderCumChannelCard(card, cur, prev, label){
   if (!card) return;
