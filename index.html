@@ -298,7 +298,7 @@
       <div class="card-sub" data-field="amount">-</div>
     </div>
     <div class="card" id="card-total-mom">
-      <div class="card-label">어제 총 광고금액 <span class="tag">전월 대비</span></div>
+      <div class="card-label">어제 총 광고금액 <span class="tag">전월 일평균 대비</span></div>
       <div class="mini-chart-wrap"><canvas id="mini-total-mom"></canvas></div>
       <div class="card-delta tiny placeholder" data-field="delta">연동 필요</div>
       <div class="card-sub" data-field="amount">-</div>
@@ -371,7 +371,8 @@
 <footer class="note">
   ※ 이 대시보드는 두 개의 구글 스프레드시트(마케팅팀 광고채널별 현황 / 월별 예산 수립·실적비교)에 연동되어 있으며, 로그인한 구글 계정이 해당 시트에 접근 권한이 있어야 데이터가 표시됩니다.<br/>
   ※ 컬럼 배치는 스크립트 상단 <code>CONFIG</code> 객체에 설정되어 있습니다. 특히 <code>sheet2.y2025 / y2026</code>의 <code>budget/spare</code> 열 위치는 추정값이니, "월별 예산 수립 & 실적 비교" 시트의 실제 A~F열 구성(TOTAL=매출액, [과세] 광고액, 비중% 컬럼이 각각 몇 열인지)에 맞춰 <code>cols</code> 숫자(0=A,1=B,2=C,3=D,4=E,5=F)를 확인해 주세요.<br/>
-  ※ Google Cloud Console의 OAuth 클라이언트에 이 파일을 여는 주소(예: http://localhost:5500)가 "승인된 자바스크립트 원본"으로 등록되어 있어야 로그인이 동작합니다. file:// 로 직접 열면 동작하지 않습니다.
+  ※ Google Cloud Console의 OAuth 클라이언트에 이 파일을 여는 주소(예: http://localhost:5500)가 "승인된 자바스크립트 원본"으로 등록되어 있어야 로그인이 동작합니다. file:// 로 직접 열면 동작하지 않습니다.<br/>
+  ※ 채널별 광고비(M:Q) 범위는 탭마다 실제 행 위치가 달라 <code>CONFIG.sheet1.dailyChannel.rangeByTab</code>에 탭별로 지정되어 있습니다(26-07=M63:Q94, 26-06=M62:Q92). 새 월 탭이 생기면 실제 범위를 확인해 이 표에 추가해 주세요. 그 외 범위(O8:R39 등)는 모든 월 탭에서 동일하게 사용됩니다.
 </footer>
 
 <details class="diag-box" id="diagBox">
@@ -392,11 +393,16 @@ const CONFIG = {
     id: '1gcndNdb8XcVn8obftjlzwhmwxwxG6llzimscKE-szvg',
     // 월별 탭 이름 패턴: YY-MM (예: '26-07'). 아래 함수로 자동 생성됨.
     tabPattern: /^\d{2}-\d{2}$/,
-    // 일자별 매출액 대비 광고비 (각 월 탭 내부)
+    // 일자별 매출액 대비 광고비 (각 월 탭 내부) — 모든 월 탭에서 동일한 범위 사용
     // ⚠️ P열=광고비(adSpend), Q열=매출액(revenue) 순서로 수정됨 (이전에 반대로 매핑되어 ROAS처럼 보였던 문제 수정)
-    dailyRatio: { a1: 'O7:R41', cols: { date: 0, adSpend: 1, revenue: 2, ratio: 3 } },
-    // 일자별 채널별 광고비 (각 월 탭 내부)
-    dailyChannel: { a1: 'M63:Q97', cols: { date: 0, meta: 1, naver: 2, google: 3, coupang: 4 } },
+    dailyRatio: { a1: 'O8:R39', cols: { date: 0, adSpend: 1, revenue: 2, ratio: 3 } },
+    // 일자별 채널별 광고비 — 탭마다 실제 행 위치가 살짝 달라서(26-07=63행 시작, 26-06=62행 시작) 탭별로 범위를 따로 지정.
+    // 목록에 없는 탭(예: 다음 달에 새로 생기는 26-08 등)은 defaultRange(26-07과 동일한 패턴)를 사용하니, 실제와 다르면 아래 표에 항목을 추가하세요.
+    dailyChannel: {
+      cols: { date: 0, meta: 1, naver: 2, google: 3, coupang: 4 },
+      rangeByTab: { '26-07': 'M63:Q94', '26-06': 'M62:Q92' },
+      defaultRange: 'M63:Q94',
+    },
     // 25년/26년 채널별(META/네이버/구글/쿠팡) 월별 누적 요약 — 26-07(최신) 탭 내부에 고정 위치
     monthly2025: { a1: 'M131:R143', cols: { month: 0, meta: 1, naver: 2, google: 3, coupang: 4, total: 5 } },
     monthly2026: { a1: 'M149:R161', cols: { month: 0, meta: 1, naver: 2, google: 3, coupang: 4, total: 5 } },
@@ -722,11 +728,9 @@ async function loadAll(){
     const today = new Date();
     const yesterday = addDays(today, -1);
     const weekAgo = addDays(yesterday, -7);
-    const sameDayLastMonth = new Date(yesterday.getFullYear(), yesterday.getMonth()-1, yesterday.getDate());
     const yearStart = new Date(yesterday.getFullYear(), 0, 1);
     diag.yesterdayStr = yesterday.toLocaleDateString('ko-KR');
     diag.weekAgoStr = weekAgo.toLocaleDateString('ko-KR');
-    diag.sameDayLastMonthStr = sameDayLastMonth.toLocaleDateString('ko-KR');
 
     // 1) 시트1 탭 목록 조회 → YY-MM 형태의 월별 탭만 추출
     const tabs = await getSpreadsheetTabs(CONFIG.sheet1.id);
@@ -753,11 +757,19 @@ async function loadAll(){
     diag.latestTab = latestTabName;
     diag.neededTabs = neededTabs;
 
+    // 탭별 채널(M:Q) 범위 조회 헬퍼
+    function dailyChannelRangeFor(tab){
+      return CONFIG.sheet1.dailyChannel.rangeByTab[tab] || CONFIG.sheet1.dailyChannel.defaultRange;
+    }
+
     // 2) 각 필요한 탭에서 dailyRatio, dailyChannel 범위 batchGet
     const ranges1 = [];
+    const dailyChannelA1ByTab = {};
     neededTabs.forEach(t => {
+      const chA1 = dailyChannelRangeFor(t);
+      dailyChannelA1ByTab[t] = chA1;
       ranges1.push(`${quoteSheetName(t)}!${CONFIG.sheet1.dailyRatio.a1}`);
-      ranges1.push(`${quoteSheetName(t)}!${CONFIG.sheet1.dailyChannel.a1}`);
+      ranges1.push(`${quoteSheetName(t)}!${chA1}`);
     });
     // 최근 탭의 월별 누적 요약 범위도 함께
     ranges1.push(`${quoteSheetName(latestTabName)}!${CONFIG.sheet1.monthly2025.a1}`);
@@ -769,10 +781,10 @@ async function loadAll(){
     valueRanges1.forEach(vr => { byRange1[vr.range] = vr.values || []; });
     diag.sheet1RangesReturned = Object.keys(byRange1).map(k => `${k} (${(byRange1[k]||[]).length}행)`);
 
-    function getRows(tab, def){
-      const key = `${quoteSheetName(tab)}!${def.a1}`;
+    function getRows(tab, a1){
+      const key = `${quoteSheetName(tab)}!${a1}`;
       // API가 응답의 range 표기를 다르게 줄 수 있어 매칭 유연화
-      const found = Object.keys(byRange1).find(k => k.includes(def.a1.split(':')[0]) && k.replace(/'/g,'').startsWith(tab));
+      const found = Object.keys(byRange1).find(k => k.includes(a1.split(':')[0]) && k.replace(/'/g,'').startsWith(tab));
       return byRange1[key] || (found ? byRange1[found] : []);
     }
 
@@ -800,9 +812,11 @@ async function loadAll(){
     const dailyRatioByTab = {};
     const dailyChannelByTab = {};
     diag.parsedRowCounts = {};
+    diag.dailyChannelRangesUsed = {};
     neededTabs.forEach(t => {
-      dailyRatioByTab[t] = parseDailyRatioRows(getRows(t, CONFIG.sheet1.dailyRatio));
-      dailyChannelByTab[t] = parseDailyChannelRows(getRows(t, CONFIG.sheet1.dailyChannel));
+      dailyRatioByTab[t] = parseDailyRatioRows(getRows(t, CONFIG.sheet1.dailyRatio.a1));
+      dailyChannelByTab[t] = parseDailyChannelRows(getRows(t, dailyChannelA1ByTab[t]));
+      diag.dailyChannelRangesUsed[t] = dailyChannelA1ByTab[t];
       diag.parsedRowCounts[t] = {
         dailyRatio: dailyRatioByTab[t].length,
         dailyChannel: dailyChannelByTab[t].length,
@@ -814,6 +828,11 @@ async function loadAll(){
       return rows.find(r => r.date && sameYMD(r.date, date));
     }
 
+    // 전월 정보 (Row1-2, Row2 공통으로 사용)
+    const prevMonthYear = parseInt(prevTabName.slice(0,2),10)+2000;
+    const prevMonthNum = parseInt(prevTabName.slice(3,5),10);
+    const prevMonthDayCount = daysInMonth(prevMonthYear, prevMonthNum);
+
     // ---- Row1: 총 광고금액 어제, WoW / MoM ----
     const yestRatioRow = findDay(curTabName, yesterday, dailyRatioByTab) || findDay(prevTabName, yesterday, dailyRatioByTab);
     const yestTotal = yestRatioRow ? yestRatioRow.adSpend : null;
@@ -822,23 +841,21 @@ async function loadAll(){
     const weekAgoRow = findDay(weekAgoTab, weekAgo, dailyRatioByTab) || findDay(curTabName, weekAgo, dailyRatioByTab) || findDay(prevTabName, weekAgo, dailyRatioByTab);
     const weekAgoTotal = weekAgoRow ? weekAgoRow.adSpend : null;
 
-    const lastMonthDayTab = tabNameOf(sameDayLastMonth);
-    const lastMonthDayRow = findDay(lastMonthDayTab, sameDayLastMonth, dailyRatioByTab) || findDay(prevTabName, sameDayLastMonth, dailyRatioByTab);
-    const lastMonthDayTotal = lastMonthDayRow ? lastMonthDayRow.adSpend : null;
+    // 전월대비: "같은 날짜"가 아니라 전월 총광고금액의 일평균과 비교
+    const prevMonthTotalRows = dailyRatioByTab[prevTabName] || [];
+    const prevMonthTotalSum = prevMonthTotalRows.reduce((s,r)=>s+(r.adSpend||0),0);
+    const prevMonthTotalAvg = prevMonthTotalRows.length ? prevMonthTotalSum / prevMonthDayCount : null;
 
     renderSimpleCard('card-total-wow', yestTotal, pctChange(yestTotal, weekAgoTotal));
-    renderSimpleCard('card-total-mom', yestTotal, pctChange(yestTotal, lastMonthDayTotal));
+    renderSimpleCard('card-total-mom', yestTotal, pctChange(yestTotal, prevMonthTotalAvg));
     renderMiniBar('mini-total-wow', weekAgoTotal, yestTotal, fmtWonCompact);
-    renderMiniBar('mini-total-mom', lastMonthDayTotal, yestTotal, fmtWonCompact);
+    renderMiniBar('mini-total-mom', prevMonthTotalAvg, yestTotal, fmtWonCompact);
     diag.yestTotal = yestTotal;
     diag.weekAgoTotal = weekAgoTotal;
-    diag.lastMonthDayTotal = lastMonthDayTotal;
+    diag.prevMonthTotalAvg = prevMonthTotalAvg;
 
     // ---- Row2: 채널별 어제 vs 전월 일평균 ----
     const prevMonthRows = dailyChannelByTab[prevTabName] || [];
-    const prevMonthYear = parseInt(prevTabName.slice(0,2),10)+2000;
-    const prevMonthNum = parseInt(prevTabName.slice(3,5),10);
-    const prevMonthDayCount = daysInMonth(prevMonthYear, prevMonthNum);
 
     const yestChannelRow = findDay(curTabName, yesterday, dailyChannelByTab) || findDay(prevTabName, yesterday, dailyChannelByTab);
 
@@ -1021,27 +1038,30 @@ function renderDiagnostics(){
   if (diag.lastError) L.push(`\n⚠️ 마지막 오류: ${diag.lastError}`);
   if (diag.sheet2Error) L.push(`⚠️ 시트2 오류: ${diag.sheet2Error}`);
 
-  L.push(`\n기준일 — 어제: ${diag.yesterdayStr || '-'} / 전주 동일요일: ${diag.weekAgoStr || '-'} / 전월 동일자: ${diag.sameDayLastMonthStr || '-'} / 전월번호: ${diag.prevMonthNum2 ?? '-'}`);
+  L.push(`\n기준일 — 어제: ${diag.yesterdayStr || '-'} / 전주 동일요일: ${diag.weekAgoStr || '-'} / 전월번호: ${diag.prevMonthNum2 ?? '-'}`);
 
   L.push(`\n[시트1: 마케팅팀 광고채널별 현황]`);
   L.push(`  전체 탭: ${(diag.sheet1AllTabs||[]).join(', ') || '(조회 안됨)'}`);
   L.push(`  월별 탭(YY-MM) 인식: ${(diag.sheet1MonthTabs||[]).join(', ') || '(없음 — 탭 이름 패턴 확인 필요)'}`);
   L.push(`  현재월 탭: ${diag.curTab||'-'} / 전월 탭: ${diag.prevTab||'-'} / 최신 탭: ${diag.latestTab||'-'}`);
   L.push(`  사용한 탭: ${(diag.neededTabs||[]).join(', ') || '-'}`);
+  if (diag.dailyChannelRangesUsed) {
+    L.push(`  탭별 채널(M:Q) 조회 범위: ` + Object.keys(diag.dailyChannelRangesUsed).map(t => `${t}=${diag.dailyChannelRangesUsed[t]}`).join(', '));
+  }
   if (diag.parsedRowCounts) {
     L.push(`  탭별 파싱된 행 수:`);
     Object.keys(diag.parsedRowCounts).forEach(t => {
       const r = diag.parsedRowCounts[t];
-      L.push(`    - ${t}: 일자별 매출/광고비(O7:R41) ${r.dailyRatio}행 · 채널별 광고비(M63:Q97) ${r.dailyChannel}행` + (r.dailyRatio===0||r.dailyChannel===0 ? '  ⚠️ 0행이면 해당 탭 데이터/범위/열 매핑을 확인하세요' : ''));
+      L.push(`    - ${t}: 일자별 매출/광고비(O8:R39) ${r.dailyRatio}행 · 채널별 광고비(${(diag.dailyChannelRangesUsed||{})[t]||'-'}) ${r.dailyChannel}행` + (r.dailyRatio===0||r.dailyChannel===0 ? '  ⚠️ 0행이면 해당 탭 데이터/범위/열 매핑을 확인하세요' : ''));
     });
   }
   if (diag.monthlyAggRows) {
     L.push(`  월별 채널 누적 요약(최신 탭 내부) 파싱 행 수: 25년(M131:R143) ${diag.monthlyAggRows.y2025}행 / 26년(M149:R161) ${diag.monthlyAggRows.y2026}행`);
   }
 
-  L.push(`\n[Row1] 어제 총광고비: ${fmtDiagVal(diag.yestTotal)}원 / 전주: ${fmtDiagVal(diag.weekAgoTotal)}원 / 전월 동일자: ${fmtDiagVal(diag.lastMonthDayTotal)}원`);
+  L.push(`\n[Row1] 어제 총광고비: ${fmtDiagVal(diag.yestTotal)}원 / 전주 동일요일: ${fmtDiagVal(diag.weekAgoTotal)}원 / 전월 일평균: ${fmtDiagVal(diag.prevMonthTotalAvg)}원`);
   L.push(`[Row4-1] 이번달 누적 비율: ${diag.curMonthRatio!=null ? diag.curMonthRatio.toFixed(2)+'%' : fmtDiagVal(null)} / 전달 누적 비율: ${diag.prevMonthRatio!=null ? diag.prevMonthRatio.toFixed(2)+'%' : fmtDiagVal(null)}`);
-  L.push(`  ※ 이 값이 400%처럼 비정상적으로 크면 CONFIG.sheet1.dailyRatio.cols의 adSpend/revenue 열이 뒤바뀐 것이니 O7:R41의 실제 열 순서를 확인하세요.`);
+  L.push(`  ※ 이 값이 400%처럼 비정상적으로 크면 CONFIG.sheet1.dailyRatio.cols의 adSpend/revenue 열이 뒤바뀐 것이니 O8:R39의 실제 열 순서를 확인하세요.`);
 
   L.push(`\n[시트2: 월별 예산 수립 & 실적 비교 · 탭명 "${CONFIG.sheet2.tabName}"]`);
   L.push(`  요청한 범위: ${(diag.sheet2RangesRequested||[]).join(' , ') || '-'}`);
@@ -1095,17 +1115,23 @@ function renderRatioCard(cardId, ratio, deltaP, label){
     subEl.className = 'card-sub ' + directionClass(deltaP);
   }
 }
+function diffSuffix(cur, prev){
+  if (cur === null || cur === undefined || prev === null || prev === undefined) return '';
+  const diff = cur - prev;
+  if (diff === 0) return ' (변동 없음)';
+  return ` (${diff > 0 ? '▲' : '▼'} ${fmtWon(Math.abs(diff))} ${diff > 0 ? '증가' : '감소'})`;
+}
 function renderCumTotalCard(cur, prev){
   const card = document.getElementById('card-total-cum');
   const pct = pctChange(cur, prev);
   setDelta(card, 'delta', pct);
-  card.querySelector('[data-field="amount"]').textContent = `${fmtWon(prev)} → ${fmtWon(cur)}`;
+  card.querySelector('[data-field="amount"]').textContent = `${fmtWon(prev)} → ${fmtWon(cur)}${diffSuffix(cur, prev)}`;
 }
 function renderCumChannelCard(card, cur, prev){
   if (!card) return;
   const pct = pctChange(cur, prev);
   setDelta(card, 'delta', pct);
-  card.querySelector('[data-field="amount"]').textContent = `${fmtWon(prev)} → ${fmtWon(cur)}`;
+  card.querySelector('[data-field="amount"]').textContent = `${fmtWon(prev)} → ${fmtWon(cur)}${diffSuffix(cur, prev)}`;
 }
 
 function chartColors(){
