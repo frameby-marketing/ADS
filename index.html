@@ -158,8 +158,10 @@
   .mini-chart-wrap canvas{width:100% !important;height:100% !important;}
   .card:has(.mini-chart-wrap){min-height:280px;}
   .card.no-chart{justify-content:center;min-height:220px;}
-  #card-total-cum [data-field="delta"]{margin-top:12px;line-height:1.4;}
-  #card-total-cum [data-field="amount"]{margin-top:12px;line-height:1.5;}
+  #card-total-cum{text-align:center;}
+  #card-total-cum [data-field="amount"]{margin-top:14px;color:#fff;}
+  html[data-theme="light"] #card-total-cum [data-field="amount"]{color:var(--text-primary);}
+  #card-total-cum [data-field="delta"]{margin-top:10px;}
   .up{color:var(--positive);}
   .down{color:var(--negative);}
   .flat{color:var(--text-muted);}
@@ -325,9 +327,9 @@
       <canvas id="totalBarChart"></canvas>
     </div>
     <div class="card no-chart" id="card-total-cum">
-      <div class="card-label">누적 총 광고비 <span class="tag">전월까지 누적</span> <span class="tag">과세 기준</span></div>
-      <div class="card-delta placeholder" data-field="delta">연동 필요</div>
-      <div class="card-sub strong" data-field="amount">-</div>
+      <div class="card-label">지난달까지 누적 총 광고비 <span class="tag">과세 기준</span></div>
+      <div class="card-value-big placeholder" data-field="amount">-</div>
+      <div class="card-sub placeholder" data-field="delta">연동 필요</div>
     </div>
   </div>
 
@@ -1438,22 +1440,10 @@ function diffSuffixHTML(cur, prev){
 function renderCumTotalCard(cur, prev, label){
   const card = document.getElementById('card-total-cum');
   const pct = pctChange(cur, prev);
-  const el = card.querySelector('[data-field="delta"]');
-  el.classList.remove('placeholder');
-  if (pct === null || pct === undefined) {
-    el.innerHTML = `${label}<br>데이터 없음`;
-  } else {
-    el.innerHTML = `${label}<br>${arrow(pct)} ${Math.abs(pct).toFixed(1)}%`;
-  }
-  el.className = el.className.split(' ').filter(c=>!['up','down','flat'].includes(c)).join(' ');
-  el.classList.add(directionClass(pct));
   const amountEl = card.querySelector('[data-field="amount"]');
-  const diffVal = (cur !== null && cur !== undefined && prev !== null && prev !== undefined) ? cur - prev : null;
-  if (diffVal === null) {
-    amountEl.textContent = `${fmtWon(prev)} → ${fmtWon(cur)}`;
-  } else {
-    amountEl.innerHTML = `${arrow(diffVal)} ${fmtWon(prev)} → ${fmtWon(cur)}${diffSuffixHTML(cur, prev)}`;
-  }
+  amountEl.classList.remove('placeholder');
+  amountEl.textContent = (cur === null || cur === undefined) ? '데이터 없음' : fmtWon(cur);
+  setDelta(card, 'delta', pct, label);
 }
 function renderCumChannelCard(card, cur, prev, label){
   if (!card) return;
@@ -1519,6 +1509,7 @@ function renderTrendChart(rows2025, rows2026, lastMonth){
               text: ds.label,
               fillStyle: ds.borderColor,
               strokeStyle: ds.borderColor,
+              fontColor: '#ffffff',
               lineWidth: 0,
               pointStyle: 'rect',
               hidden: !chart.isDatasetVisible(i),
