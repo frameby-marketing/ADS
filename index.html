@@ -562,7 +562,11 @@ let accessToken = null;
 let charts = {};
 let diag = {};
 let lastMode = null;
-const hasDataLabels = typeof window.ChartDataLabels !== 'undefined';
+const hasChart = typeof window.Chart !== 'undefined';
+const hasDataLabels = hasChart && typeof window.ChartDataLabels !== 'undefined';
+if (!hasChart) {
+  console.warn('Chart.js가 로드되지 않았습니다 (CDN 접근이 차단되었을 수 있음). 그래프 없이 숫자만 표시됩니다.');
+}
 
 /* =========================================================================
    유틸
@@ -583,23 +587,31 @@ function toNumber(v){
 }
 
 // 시트 셀의 "월" 표기(예: '1월', 1, '2026-01-01' 등)를 1~12 정수로 변환
-function parseMonthCell(v, fallbackSerialBase = true){
+function clampMonth(n){ return (n !== null && !isNaN(n) && n >= 1 && n <= 12) ? n : null; }
+
+function parseMonthCell(v){
   if (v === null || v === undefined || v === '') return null;
   if (typeof v === 'number') {
     if (v >= 1 && v <= 12) return v;
     // 날짜 시리얼 값으로 추정
     const d = serialToDate(v);
-    if (d) return d.getMonth() + 1;
-    return null;
+    return d ? d.getMonth() + 1 : null;
   }
   const s = String(v).trim();
-  const m = s.match(/(\d{1,2})\s*월/);
-  if (m) return parseInt(m[1], 10);
-  const m2 = s.match(/^\d{4}[-.\/](\d{1,2})/);
-  if (m2) return parseInt(m2[1], 10);
+  // "1열", "A열" 처럼 열 이름을 나타내는 헤더 라벨은 월이 아니므로 제외 (실제 월 표기는 "월"을 사용, "열"과 구분)
+  if (/열\s*$/.test(s) && !/월/.test(s)) return null;
+  // "1월", "01월" (공백 허용)
+  let m = s.match(/(\d{1,2})\s*월/);
+  if (m) return clampMonth(parseInt(m[1], 10));
+  // "2025-01", "2025. 1", "2025/01" 등 4자리 연도 + 구분자(공백 허용) + 월
+  m = s.match(/^\d{4}\s*[-.\/]\s*(\d{1,2})/);
+  if (m) return clampMonth(parseInt(m[1], 10));
+  // "25-01", "26-07" 처럼 탭 이름과 같은 2자리 연도-월 표기
+  m = s.match(/^\d{2}\s*[-.\/]\s*(\d{1,2})\s*$/);
+  if (m) return clampMonth(parseInt(m[1], 10));
+  // 순수 숫자 (문자열) — "1", "01", "12" 등
   const asNum = parseInt(s, 10);
-  if (!isNaN(asNum) && asNum >= 1 && asNum <= 12) return asNum;
-  return null;
+  return clampMonth(asNum);
 }
 
 // Google Sheets 날짜 시리얼 -> JS Date (UNFORMATTED_VALUE, SERIAL_NUMBER 기준)
@@ -653,6 +665,7 @@ function cssVar(name){ return getComputedStyle(document.documentElement).getProp
 function renderMiniBar(canvasId, prevVal, currVal, formatFn){
   const el = document.getElementById(canvasId);
   if (!el) return;
+  if (!hasChart) return; // Chart.js 미로딩 시 그래프만 생략, 나머지 텍스트/계산에는 영향 없음
   const gray = cssVar('--text-muted');
   let currColor = gray;
   if (prevVal !== null && prevVal !== undefined && currVal !== null && currVal !== undefined) {
@@ -910,10 +923,17 @@ function buildStaticSnapshot(){
   diag.sheet2Parsed = {
     y2025: `${rows2025.length}행 (정적 데이터)`,
     y2026: `${rows2026.length}행 (정적 데이터)`,
-    y2025Sample: JSON.stringify(rows2025[0] || null),
-    y2026Sample: JSON.stringify(rows2026[0] || null),
+    y2025HeaderSample: '(정적 데이터 — 헤더 없음)',
+    y2025DataSample: JSON.stringify(rows2025[0] || null),
+    y2026HeaderSample: '(정적 데이터 — 헤더 없음)',
+    y2026DataSample: JSON.stringify(rows2026[0] || null),
   };
-  diag.monthlyAggRows = { y2025: monthlyRows2025.length, y2026: monthlyRows2026.length };
+  diag.monthlyAggRows = {
+    y2025: `${monthlyRows2025.length}행 (정적 데이터)`,
+    y2026: `${monthlyRows2026.length}행 (정적 데이터)`,
+    y2025Sample: JSON.stringify(monthlyRows2025[0] || null),
+    y2026Sample: JSON.stringify(monthlyRows2026[0] || null),
+  };
   diag.staticNote = '정적 데이터의 일자별 총광고비/매출(1~7월)은 모두 반영되어 있으나, 채널별(META/네이버/구글/쿠팡) 일자별 데이터는 26-06·26-07만 있어 "금년 누적 일평균"(Row3)은 6~7월 데이터만으로 계산됩니다.';
 
   return { dailyRatioByTab, dailyChannelByTab, rows2025, rows2026, monthlyRows2025, monthlyRows2026, neededTabs, curTabName, prevTabName, latestTabName, ytdTabNames };
@@ -1034,13 +1054,22 @@ async function fetchLiveSnapshot(yesterday){
   diag.sheet2Parsed = {
     y2025: `${raw2025.length}행 수신 → ${rows2025.length}행 파싱 성공 (월 인식 실패분 제외)`,
     y2026: `${raw2026.length}행 수신 → ${rows2026.length}행 파싱 성공 (월 인식 실패분 제외)`,
-    y2025Sample: raw2025[0] ? JSON.stringify(raw2025[0]) : '(없음)',
-    y2026Sample: raw2026[0] ? JSON.stringify(raw2026[0]) : '(없음)',
+    y2025HeaderSample: raw2025[0] ? JSON.stringify(raw2025[0]) : '(없음)',
+    y2025DataSample: raw2025[1] ? JSON.stringify(raw2025[1]) : '(없음)',
+    y2026HeaderSample: raw2026[0] ? JSON.stringify(raw2026[0]) : '(없음)',
+    y2026DataSample: raw2026[1] ? JSON.stringify(raw2026[1]) : '(없음)',
   };
 
-  const monthlyRows2025 = parseMonthlyAggRows(byRange1, CONFIG.sheet1.monthly2025, latestTabName);
-  const monthlyRows2026 = parseMonthlyAggRows(byRange1, CONFIG.sheet1.monthly2026, latestTabName);
-  diag.monthlyAggRows = { y2025: monthlyRows2025.length, y2026: monthlyRows2026.length };
+  const rawMonthly2025 = getRawMonthlyAggRows(byRange1, CONFIG.sheet1.monthly2025, latestTabName);
+  const rawMonthly2026 = getRawMonthlyAggRows(byRange1, CONFIG.sheet1.monthly2026, latestTabName);
+  const monthlyRows2025 = parseMonthlyAggRowsFromRaw(rawMonthly2025, CONFIG.sheet1.monthly2025);
+  const monthlyRows2026 = parseMonthlyAggRowsFromRaw(rawMonthly2026, CONFIG.sheet1.monthly2026);
+  diag.monthlyAggRows = {
+    y2025: `${rawMonthly2025.length}행 수신 → ${monthlyRows2025.length}행 파싱 성공`,
+    y2026: `${rawMonthly2026.length}행 수신 → ${monthlyRows2026.length}행 파싱 성공`,
+    y2025Sample: rawMonthly2025[0] ? JSON.stringify(rawMonthly2025[0]) : '(없음 — 범위/탭 확인 필요)',
+    y2026Sample: rawMonthly2026[0] ? JSON.stringify(rawMonthly2026[0]) : '(없음 — 범위/탭 확인 필요)',
+  };
 
   return { dailyRatioByTab, dailyChannelByTab, rows2025, rows2026, monthlyRows2025, monthlyRows2026, neededTabs, curTabName, prevTabName, latestTabName, ytdTabNames };
 }
@@ -1219,9 +1248,11 @@ async function loadAll(source){
   }
 }
 
-function parseMonthlyAggRows(byRange1, def, latestTab){
+function getRawMonthlyAggRows(byRange1, def, latestTab){
   const found = Object.keys(byRange1).find(k => k.includes(def.a1.split(':')[0]) && k.replace(/'/g,'').startsWith(latestTab));
-  const rows = found ? byRange1[found] : [];
+  return found ? byRange1[found] : [];
+}
+function parseMonthlyAggRowsFromRaw(rows, def){
   const c = def.cols;
   return rows.map(r => ({
     month: parseMonthCell(r[c.month]),
@@ -1248,6 +1279,7 @@ function renderDiagnostics(){
   L.push(`실행 시각: ${diag.ranAt || '-'}`);
   L.push(`데이터 출처: ${diag.mode || '-'}`);
   L.push(`로그인 상태: ${diag.loggedIn ? '✅ 연동됨' : '❌ 연동 안됨'}`);
+  L.push(`차트 라이브러리(Chart.js): ${hasChart ? '✅ 로드됨' : '❌ 로드 실패 — 그래프 없이 숫자만 표시됩니다 (CDN 차단 가능성)'}`);
   if (diag.staticNote) L.push(`ℹ️ ${diag.staticNote}`);
   if (diag.lastError) L.push(`\n⚠️ 마지막 오류: ${diag.lastError}`);
   if (diag.sheet2Error) L.push(`⚠️ 시트2 오류: ${diag.sheet2Error}`);
@@ -1269,8 +1301,12 @@ function renderDiagnostics(){
       L.push(`    - ${t}: 일자별 매출/광고비(O8:R39) ${r.dailyRatio}행 · 채널별 광고비(${(diag.dailyChannelRangesUsed||{})[t]||'-'}) ${r.dailyChannel}행` + (r.dailyRatio===0||r.dailyChannel===0 ? '  ⚠️ 0행이면 해당 탭 데이터/범위/열 매핑을 확인하세요' : ''));
     });
   }
+  L.push(`  시트1 응답 범위 목록: ${(diag.sheet1RangesReturned||[]).join(' , ') || '(없음)'}`);
   if (diag.monthlyAggRows) {
-    L.push(`  월별 채널 누적 요약(최신 탭 내부) 파싱 행 수: 25년(M131:R143) ${diag.monthlyAggRows.y2025}행 / 26년(M149:R161) ${diag.monthlyAggRows.y2026}행`);
+    L.push(`  월별 채널 누적 요약(최신 탭 내부) — 25년(M131:R143): ${diag.monthlyAggRows.y2025} / 26년(M149:R161): ${diag.monthlyAggRows.y2026}`);
+    L.push(`    25년 원본 첫 행 샘플: ${diag.monthlyAggRows.y2025Sample}`);
+    L.push(`    26년 원본 첫 행 샘플: ${diag.monthlyAggRows.y2026Sample}`);
+    L.push(`    ※ 0행이면 M131:R143/M149:R161 범위가 실제로 26-07 탭에 없거나, 월(A열) 표기가 인식 안 되는 형식일 수 있습니다. 위 샘플의 첫 값이 월(예: 1, "1월", "25-01" 등)인지 확인하세요.`);
   }
 
   L.push(`\n[Row1] 어제 총광고비: ${fmtDiagVal(diag.yestTotal)}원 / 전주 동일요일: ${fmtDiagVal(diag.weekAgoTotal)}원 / 전월 일평균: ${fmtDiagVal(diag.prevMonthTotalAvg)}원`);
@@ -1283,9 +1319,11 @@ function renderDiagnostics(){
   if (diag.sheet2Parsed) {
     L.push(`  25년(A5:F17): ${diag.sheet2Parsed.y2025}`);
     L.push(`  26년(A21:F33): ${diag.sheet2Parsed.y2026}`);
-    L.push(`  25년 원본 첫 행 샘플: ${diag.sheet2Parsed.y2025Sample}`);
-    L.push(`  26년 원본 첫 행 샘플: ${diag.sheet2Parsed.y2026Sample}`);
-    L.push(`  ※ 샘플의 배열 순서가 CONFIG.sheet2.y2025.cols(month/budget/actual/spare/revenue/ratio = A~F)와 실제로 일치하는지 확인하세요.`);
+    L.push(`  25년 헤더행 샘플: ${diag.sheet2Parsed.y2025HeaderSample}`);
+    L.push(`  25년 실제 데이터행 샘플(1월): ${diag.sheet2Parsed.y2025DataSample}`);
+    L.push(`  26년 헤더행 샘플: ${diag.sheet2Parsed.y2026HeaderSample}`);
+    L.push(`  26년 실제 데이터행 샘플(1월): ${diag.sheet2Parsed.y2026DataSample}`);
+    L.push(`  ※ "데이터행 샘플"의 첫 번째 값(A열=월)이 어떤 형식인지 확인하세요. "25-01" "2025-01" "1월" "1" 등은 자동 인식되지만, 그 외 형식이면 파싱에 실패할 수 있습니다.`);
   }
   L.push(`  금년 누적(전월까지) 비율: ${diag.ytdRatio26!=null?diag.ytdRatio26.toFixed(2)+'%':fmtDiagVal(null)} (매출합 ${fmtDiagVal(diag.ytdRevenue26)} / 광고액합 ${fmtDiagVal(diag.ytdActual26)})`);
   L.push(`  전년 동기간 비율: ${diag.ytdRatio25!=null?diag.ytdRatio25.toFixed(2)+'%':fmtDiagVal(null)} (매출합 ${fmtDiagVal(diag.ytdRevenue25)} / 광고액합 ${fmtDiagVal(diag.ytdActual25)})`);
@@ -1361,6 +1399,7 @@ function chartColors(){
 
 // Row5: 매출액 대비 광고비 추이 — 1월~전월, 25년(빨강/얇은선) vs 26년(파랑/굵은선), 점 위에 % 라벨
 function renderTrendChart(rows2025, rows2026, lastMonth){
+  if (!hasChart) return;
   const ctx = document.getElementById('trendChart');
   const colors = chartColors();
   const monthCount = Math.max(lastMonth || 12, 1);
@@ -1407,6 +1446,7 @@ function renderTrendChart(rows2025, rows2026, lastMonth){
 
 // Row6-2: 누적 총 광고비 비교 (전월까지 vs 작년 동월까지) — 이전=회색, 현재=오르면 빨강/내리면 파랑
 function renderTotalBarChart(prevYearTotal, curYearTotal, year){
+  if (!hasChart) return;
   const ctx = document.getElementById('totalBarChart');
   const colors = chartColors();
   let currColor = colors.gray;
