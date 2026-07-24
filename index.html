@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>광고 대시보드</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <style>
   :root{
     --bg:#0b0d12;
@@ -148,14 +146,14 @@
     font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;
     background:var(--accent-soft);color:var(--accent);letter-spacing:.2px;
   }
-  .card-delta{font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.15;}
+  .card-delta{font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.25;}
   .card-delta.small{font-size:20px;}
-  .card-delta.tiny{font-size:16px;}
+  .card-delta.tiny{font-size:22px;line-height:1.3;}
   .card-sub{font-size:13px;color:var(--text-muted);font-weight:500;}
   .card-sub.strong{font-size:15px;color:var(--text-secondary);font-weight:600;}
   .mini-chart-wrap{position:relative;height:78px;margin:2px 0 0;}
   .mini-chart-wrap canvas{width:100% !important;height:100% !important;}
-  .card:has(.mini-chart-wrap){min-height:210px;}
+  .card:has(.mini-chart-wrap){min-height:240px;}
   .up{color:var(--positive);}
   .down{color:var(--negative);}
   .flat{color:var(--text-muted);}
@@ -316,10 +314,10 @@
 
   <!-- Row 2 : 채널별 어제 vs 전월 일평균 -->
   <div class="row row-4" id="row-channel-vs-prevavg">
-    <div class="card" data-channel="meta"><div class="card-label">어제 META 광고 금액 <span class="tag">전월 일평균 대비</span></div><div class="mini-chart-wrap"><canvas id="mini-prevavg-meta"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
-    <div class="card" data-channel="naver"><div class="card-label">어제 네이버 광고 금액 <span class="tag">전월 일평균 대비</span></div><div class="mini-chart-wrap"><canvas id="mini-prevavg-naver"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
-    <div class="card" data-channel="coupang"><div class="card-label">어제 쿠팡 광고 금액 <span class="tag">전월 일평균 대비</span></div><div class="mini-chart-wrap"><canvas id="mini-prevavg-coupang"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
-    <div class="card" data-channel="google"><div class="card-label">어제 구글 광고 금액 <span class="tag">전월 일평균 대비</span></div><div class="mini-chart-wrap"><canvas id="mini-prevavg-google"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
+    <div class="card" data-channel="meta"><div class="card-label">어제 META 광고 금액</div><div class="mini-chart-wrap"><canvas id="mini-prevavg-meta"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
+    <div class="card" data-channel="naver"><div class="card-label">어제 네이버 광고 금액</div><div class="mini-chart-wrap"><canvas id="mini-prevavg-naver"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
+    <div class="card" data-channel="coupang"><div class="card-label">어제 쿠팡 광고 금액</div><div class="mini-chart-wrap"><canvas id="mini-prevavg-coupang"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
+    <div class="card" data-channel="google"><div class="card-label">어제 구글 광고 금액</div><div class="mini-chart-wrap"><canvas id="mini-prevavg-google"></canvas></div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div></div>
   </div>
 
   <!-- Row 3 : 채널별 어제 vs 금년 누적 일평균 -->
@@ -562,11 +560,46 @@ let accessToken = null;
 let charts = {};
 let diag = {};
 let lastMode = null;
-const hasChart = typeof window.Chart !== 'undefined';
-const hasDataLabels = hasChart && typeof window.ChartDataLabels !== 'undefined';
-if (!hasChart) {
-  console.warn('Chart.js가 로드되지 않았습니다 (CDN 접근이 차단되었을 수 있음). 그래프 없이 숫자만 표시됩니다.');
+let hasChart = false;
+let hasDataLabels = false;
+
+/* =========================================================================
+   Chart.js 로더 — CDN이 하나 막혀 있어도 다른 CDN으로 자동 재시도
+   ========================================================================= */
+function loadScriptOnce(src){
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => resolve(true);
+    s.onerror = () => reject(new Error('load failed: ' + src));
+    document.head.appendChild(s);
+  });
 }
+async function loadFirstAvailable(sources){
+  for (const src of sources) {
+    try { await loadScriptOnce(src); return true; } catch (e) { /* 다음 CDN 시도 */ }
+  }
+  return false;
+}
+async function loadChartLibs(){
+  await loadFirstAvailable([
+    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js',
+    'https://unpkg.com/chart.js@4.4.4/dist/chart.umd.min.js',
+  ]);
+  hasChart = typeof window.Chart !== 'undefined';
+  if (hasChart) {
+    await loadFirstAvailable([
+      'https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js',
+      'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js',
+    ]);
+    hasDataLabels = typeof window.ChartDataLabels !== 'undefined';
+  } else {
+    console.warn('Chart.js를 어떤 CDN에서도 불러오지 못했습니다 (네트워크에서 외부 CDN이 차단되었을 수 있음). 그래프 없이 숫자만 표시됩니다.');
+  }
+}
+// 페이지 로드 시 바로 백그라운드에서 로딩 시작 (다른 초기화와 병렬 진행)
+const chartLibsReady = loadChartLibs();
 
 /* =========================================================================
    유틸
@@ -711,12 +744,13 @@ function pctChange(curr, base){
   return (curr - base) / Math.abs(base) * 100;
 }
 
-function setDelta(cardEl, field, value, digits=1){
+function setDelta(cardEl, field, value, label='', digits=1){
   const el = cardEl.querySelector(`[data-field="${field}"]`);
   if (!el) return;
   el.classList.remove('placeholder');
-  if (value === null || value === undefined) { el.textContent = '데이터 없음'; return; }
-  el.textContent = `${arrow(value)} ${Math.abs(value).toFixed(digits)}%`;
+  const prefix = label ? label + ' ' : '';
+  if (value === null || value === undefined) { el.textContent = prefix + '데이터 없음'; return; }
+  el.textContent = `${prefix}${arrow(value)} ${Math.abs(value).toFixed(digits)}%`;
   el.className = el.className.split(' ').filter(c=>!['up','down','flat'].includes(c)).join(' ');
   el.classList.add(directionClass(value));
 }
@@ -1087,6 +1121,7 @@ async function loadAll(source){
     mode: mode === 'static' ? '정적 데이터(사용자 제공값)' : 'Google Sheets 실시간 연동',
   };
   document.querySelectorAll('.card-delta, .card-sub').forEach(el => el.classList.add('skeleton'));
+  await chartLibsReady; // 차트 라이브러리 로딩(성공/실패) 결과가 확정된 뒤에 계산·렌더링 진행
 
   try {
     let yesterday;
@@ -1132,8 +1167,8 @@ async function loadAll(source){
     const prevMonthTotalSum = prevMonthTotalRows.reduce((s,r)=>s+(r.adSpend||0),0);
     const prevMonthTotalAvg = prevMonthTotalRows.length ? prevMonthTotalSum / prevMonthDayCount : null;
 
-    renderSimpleCard('card-total-wow', yestTotal, pctChange(yestTotal, weekAgoTotal));
-    renderSimpleCard('card-total-mom', yestTotal, pctChange(yestTotal, prevMonthTotalAvg));
+    renderSimpleCard('card-total-wow', yestTotal, pctChange(yestTotal, weekAgoTotal), '전주 대비');
+    renderSimpleCard('card-total-mom', yestTotal, pctChange(yestTotal, prevMonthTotalAvg), '전월 일평균 대비');
     renderMiniBar('mini-total-wow', weekAgoTotal, yestTotal, fmtWonCompact);
     renderMiniBar('mini-total-mom', prevMonthTotalAvg, yestTotal, fmtWonCompact);
     diag.yestTotal = yestTotal;
@@ -1150,7 +1185,7 @@ async function loadAll(source){
       const prevMonthSum = prevMonthRows.reduce((s,r)=> s + (r[ch]||0), 0);
       const prevMonthAvg = prevMonthRows.length ? prevMonthSum / prevMonthDayCount : null;
       const card = document.querySelector(`#row-channel-vs-prevavg [data-channel="${ch}"]`);
-      renderChannelCard(card, yestVal, pctChange(yestVal, prevMonthAvg));
+      renderChannelCard(card, yestVal, pctChange(yestVal, prevMonthAvg), '전월 일평균 대비');
       renderMiniBar(`mini-prevavg-${ch}`, prevMonthAvg, yestVal, fmtWonCompact);
     });
 
@@ -1170,7 +1205,7 @@ async function loadAll(source){
       const yestVal = yestChannelRow ? yestChannelRow[ch] : null;
       const ytdAvg = ytdDays > 0 ? ytdSums[ch] / ytdDays : null;
       const card = document.querySelector(`#row-channel-vs-ytdavg [data-channel="${ch}"]`);
-      renderChannelCard(card, yestVal, pctChange(yestVal, ytdAvg));
+      renderChannelCard(card, yestVal, pctChange(yestVal, ytdAvg), '금년 누적 일평균 대비');
       renderMiniBar(`mini-ytdavg-${ch}`, ytdAvg, yestVal, fmtWonCompact);
     });
 
@@ -1217,7 +1252,7 @@ async function loadAll(source){
     renderTrendChart(rows2025, rows2026, prevMonthNum2);
 
     // ---- Row6: 누적 총 광고비 ([과세] 광고액 기준, 전월까지 누적) ----
-    renderCumTotalCard(ytdActual26, ytdActual25);
+    renderCumTotalCard(ytdActual26, ytdActual25, '전년 대비');
     renderMiniBar('mini-total-cum', ytdActual25, ytdActual26, fmtWonCompact);
     renderTotalBarChart(ytdActual25, ytdActual26, yesterday.getFullYear());
 
@@ -1230,7 +1265,7 @@ async function loadAll(source){
       const cur = cumMonths2026.reduce((s,r)=>s+(r[ch]||0),0);
       const prev = cumMonths2025.reduce((s,r)=>s+(r[ch]||0),0);
       const card = document.querySelector(`#row-channel-cum [data-channel="${ch}"]`);
-      renderCumChannelCard(card, cur, prev);
+      renderCumChannelCard(card, cur, prev, '전년 대비');
       renderMiniBar(`mini-cum-${ch}`, prev, cur, fmtWonCompact);
       diag.channelCum[ch] = { prev, cur };
     });
@@ -1344,14 +1379,14 @@ function renderDiagnostics(){
 /* =========================================================================
    렌더링 헬퍼
    ========================================================================= */
-function renderSimpleCard(cardId, amount, deltaPct){
+function renderSimpleCard(cardId, amount, deltaPct, label){
   const card = document.getElementById(cardId);
-  setDelta(card, 'delta', deltaPct);
+  setDelta(card, 'delta', deltaPct, label);
   card.querySelector('[data-field="amount"]').textContent = fmtWon(amount);
 }
-function renderChannelCard(card, amount, deltaPct){
+function renderChannelCard(card, amount, deltaPct, label){
   if (!card) return;
-  setDelta(card, 'delta', deltaPct);
+  setDelta(card, 'delta', deltaPct, label);
   card.querySelector('[data-field="amount"]').textContent = fmtWon(amount);
 }
 function renderRatioCard(cardId, ratio, deltaP, label){
@@ -1373,16 +1408,16 @@ function diffSuffix(cur, prev){
   if (diff === 0) return ' (변동 없음)';
   return ` (${diff > 0 ? '▲' : '▼'} ${fmtWon(Math.abs(diff))} ${diff > 0 ? '증가' : '감소'})`;
 }
-function renderCumTotalCard(cur, prev){
+function renderCumTotalCard(cur, prev, label){
   const card = document.getElementById('card-total-cum');
   const pct = pctChange(cur, prev);
-  setDelta(card, 'delta', pct);
+  setDelta(card, 'delta', pct, label);
   card.querySelector('[data-field="amount"]').textContent = `${fmtWon(prev)} → ${fmtWon(cur)}${diffSuffix(cur, prev)}`;
 }
-function renderCumChannelCard(card, cur, prev){
+function renderCumChannelCard(card, cur, prev, label){
   if (!card) return;
   const pct = pctChange(cur, prev);
-  setDelta(card, 'delta', pct);
+  setDelta(card, 'delta', pct, label);
   card.querySelector('[data-field="amount"]').textContent = `${fmtWon(prev)} → ${fmtWon(cur)}${diffSuffix(cur, prev)}`;
 }
 
