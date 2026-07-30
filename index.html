@@ -154,7 +154,7 @@
     overflow:hidden;
   }
   .card-label{
-    font-size:13px;color:var(--text-secondary);font-weight:600;
+    font-size:17px;color:var(--text-primary);font-weight:700;
     display:flex;align-items:center;gap:6px;flex-wrap:wrap;
     margin-bottom:2px;
   }
@@ -588,7 +588,7 @@ const STATIC_DATA = {
 
 const CHANNELS = ['meta', 'naver', 'coupang', 'google'];
 const CHANNEL_LABEL = { meta: 'META', naver: '네이버', coupang: '쿠팡', google: '구글' };
-const CHANNEL_COLORS = { meta: '#6c7bff', naver: '#03c75a', coupang: '#ff6b6b', google: '#4285f4' };
+const CHANNEL_COLORS = { meta: '#1e4fd6', naver: '#03c75a', coupang: '#ff6b6b', google: '#a9b6ff' };
 // 2025년 광고 플랫폼별 지출 비중 (연간 고정값, 사용자 제공)
 const CHANNEL_TOTALS_2025 = { naver: 268450533, google: 77314873, meta: 565533249, coupang: 60234071 };
 
@@ -812,7 +812,8 @@ function renderChannelPie(canvasId, valuesObj){
           },
         },
         datalabels: hasDataLabels ? {
-          color: '#fff', font: { size: 11, weight: '700' },
+          color: (ctx) => CHANNELS[ctx.dataIndex] === 'google' ? '#1a1a1a' : '#fff',
+          font: { size: 11, weight: '700' },
           formatter: (v) => (total > 0 && v > 0) ? (v/total*100).toFixed(1) + '%' : '',
         } : false,
       },
@@ -928,8 +929,8 @@ function initAuth(){
       setGateLoading(true);
       tokenClient.requestAccessToken({ prompt: 'consent' });
     });
-    // 재방문 시 조용히 갱신 시도 (이미 승인된 세션이면 클릭 없이 자동 로그인됨)
-    try { tokenClient.requestAccessToken({ prompt: '' }); } catch (e) {}
+    // ⚠️ 자동 로그인 시도 없음: 페이지 접속 시에는 항상 로그인 게이트 화면만 보여주고,
+    // "Google 계정으로 로그인" 버튼을 직접 눌러야만 로그인 팝업이 뜨도록 함
   }
   setup();
 }
