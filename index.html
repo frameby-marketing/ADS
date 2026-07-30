@@ -118,18 +118,16 @@
   .user-chip img{width:22px;height:22px;border-radius:50%;}
   #signoutBtn{background:none;border:none;color:var(--text-muted);text-decoration:underline;cursor:pointer;font-size:11px;}
 
-  .tabs{
-    display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--card-border);
+  .section-heading{
+    display:flex;align-items:center;gap:10px;
+    font-size:21px;font-weight:800;color:var(--text-primary);letter-spacing:-.3px;
+    margin:40px 0 18px;padding-bottom:12px;border-bottom:2px solid var(--accent);
   }
-  .tab-btn{
-    background:none;border:none;cursor:pointer;
-    padding:11px 20px;font-size:14px;font-weight:700;
-    color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-1px;
-    transition:color .15s ease,border-color .15s ease;
+  .section-heading:first-of-type{margin-top:4px;}
+  .section-dot{
+    width:11px;height:11px;border-radius:50%;background:var(--accent);flex:none;
+    box-shadow:0 0 0 4px var(--accent-soft);
   }
-  .tab-btn:hover{color:var(--text-secondary);}
-  .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
-  .tab-panel.hidden{display:none;}
 
   .banner{
     padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;
@@ -325,14 +323,8 @@
     <div class="auth-area" id="authArea"></div>
   </div>
 
-  <!-- 탭 -->
-  <div class="tabs" id="dashboardTabs">
-    <button type="button" class="tab-btn active" data-tab="yesterday">어제 데이터</button>
-    <button type="button" class="tab-btn" data-tab="month">이번달 데이터</button>
-    <button type="button" class="tab-btn" data-tab="year">이번년도 데이터</button>
-  </div>
-
-  <!-- 탭: 어제 데이터 -->
+  <!-- 섹션: 어제 데이터 -->
+  <div class="section-heading"><span class="section-dot"></span>어제 데이터</div>
   <div class="tab-panel" data-tab-panel="yesterday">
     <div class="row row-1">
       <div class="card" id="card-total-wow">
@@ -351,8 +343,9 @@
     </div>
   </div>
 
-  <!-- 탭: 이번달 데이터 -->
-  <div class="tab-panel hidden" data-tab-panel="month">
+  <!-- 섹션: 이번달 데이터 -->
+  <div class="section-heading"><span class="section-dot"></span>이번달 데이터</div>
+  <div class="tab-panel" data-tab-panel="month">
     <div class="row row-2">
       <div class="card" id="card-ratio-mtd">
         <div class="card-label card-label-lg">이번달 매출액 대비 광고비 <span class="tag">실시간 집계</span></div>
@@ -376,8 +369,9 @@
     </div>
   </div>
 
-  <!-- 탭: 이번년도 데이터 -->
-  <div class="tab-panel hidden" data-tab-panel="year">
+  <!-- 섹션: 이번년도 데이터 -->
+  <div class="section-heading"><span class="section-dot"></span>이번년도 데이터</div>
+  <div class="tab-panel" data-tab-panel="year">
     <div class="row row-1">
       <div class="card" id="card-ratio-ytd">
         <div class="card-label card-label-lg">26년 누적 매출액 대비 광고비 <span class="tag">과세 기준</span></div>
@@ -1619,31 +1613,10 @@ function renderTotalBarChart(prevYearTotal, curYearTotal, year){
 /* =========================================================================
    초기화
    ========================================================================= */
-function initTabs(){
-  const btns = document.querySelectorAll('.tab-btn');
-  const panels = document.querySelectorAll('.tab-panel');
-  btns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const target = btn.dataset.tab;
-      btns.forEach(b => b.classList.toggle('active', b === btn));
-      panels.forEach(p => p.classList.toggle('hidden', p.dataset.tabPanel !== target));
-      // 숨겨진 탭에서 그린 차트는 크기가 0으로 계산되므로, 탭이 보일 때 다시 사이즈를 맞춰준다
-      requestAnimationFrame(() => {
-        Object.keys(charts).forEach(k => {
-          if (charts[k] && typeof charts[k].resize === 'function') {
-            try { charts[k].resize(); } catch(e) {}
-          }
-        });
-      });
-    });
-  });
-}
-
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initDropdown();
   initAuth();
-  initTabs();
   renderAuthArea(false);
 
   document.getElementById('gateStaticBtn').addEventListener('click', async () => {
