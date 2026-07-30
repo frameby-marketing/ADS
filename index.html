@@ -1,5 +1,7 @@
 
+
 <script src="https://frameby-marketing.github.io/Dashboard_Hub/nav.js" data-current="main"></script>
+
 
 
 <!DOCTYPE html>
@@ -117,6 +119,19 @@
   .user-chip{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary);}
   .user-chip img{width:22px;height:22px;border-radius:50%;}
   #signoutBtn{background:none;border:none;color:var(--text-muted);text-decoration:underline;cursor:pointer;font-size:11px;}
+
+  .tabs{
+    display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--card-border);
+  }
+  .tab-btn{
+    background:none;border:none;cursor:pointer;
+    padding:11px 20px;font-size:14px;font-weight:700;
+    color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-1px;
+    transition:color .15s ease,border-color .15s ease;
+  }
+  .tab-btn:hover{color:var(--text-secondary);}
+  .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .tab-panel.hidden{display:none;}
 
   .banner{
     padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;
@@ -312,86 +327,98 @@
     <div class="auth-area" id="authArea"></div>
   </div>
 
-  <!-- Row 1 : 매출액 대비 광고비 -->
-  <div class="row row-2">
-    <div class="card" id="card-ratio-mtd">
-      <div class="card-label card-label-lg">이번달 매출액 대비 광고비 <span class="tag">실시간 집계</span></div>
-      <div class="card-value-big placeholder" data-field="ratio">-</div>
-      <div class="card-delta tiny placeholder" data-field="deltap">연동 필요</div>
-      <div class="mini-chart-wrap"><canvas id="mini-ratio-mtd"></canvas></div>
-    </div>
-    <div class="card" id="card-ratio-ytd">
-      <div class="card-label card-label-lg">26년 누적 매출액 대비 광고비 <span class="tag">과세 기준</span></div>
-      <div class="card-value-big placeholder" data-field="ratio">-</div>
-      <div class="card-delta tiny placeholder" data-field="deltap">연동 필요</div>
-      <div class="mini-chart-wrap"><canvas id="mini-ratio-ytd"></canvas></div>
-    </div>
+  <!-- 탭 -->
+  <div class="tabs" id="dashboardTabs">
+    <button type="button" class="tab-btn active" data-tab="yesterday">어제 데이터</button>
+    <button type="button" class="tab-btn" data-tab="month">이번달 데이터</button>
+    <button type="button" class="tab-btn" data-tab="year">이번년도 데이터</button>
   </div>
 
-  <!-- Row 2 : 연간 추이 라인차트 -->
-  <div class="row row-1">
-    <div class="card chart-card">
-      <div class="card-label">매출액 대비 광고비 추이 <span class="tag">이번년도 vs 작년</span></div>
-      <canvas id="trendChart"></canvas>
-    </div>
-  </div>
-
-  <!-- Row 3 : 누적 총광고비 -->
-  <div class="row row-2">
-    <div class="card bar-card" id="card-total-bar">
-      <div class="card-label">누적 총 광고비 비교 <span class="tag">전월까지 vs 작년 동월까지</span> <span class="tag">과세 기준</span></div>
-      <canvas id="totalBarChart"></canvas>
-    </div>
-    <div class="card no-chart" id="card-total-cum">
-      <div class="card-label">지난달까지 누적 총 광고비 <span class="tag">과세 기준</span></div>
-      <div class="card-value-big placeholder" data-field="amount">-</div>
-      <div class="card-sub placeholder" data-field="delta">연동 필요</div>
-      <div class="cum-revenue-block">
-        <div class="cum-revenue-label">지난달까지 누적 총 매출액 <span class="tag">과세 기준</span></div>
-        <div class="cum-revenue-value placeholder" data-field="revenue">-</div>
-        <div class="card-sub placeholder" data-field="revenueDelta">연동 필요</div>
+  <!-- 탭: 어제 데이터 -->
+  <div class="tab-panel" data-tab-panel="yesterday">
+    <div class="row row-1">
+      <div class="card" id="card-total-wow">
+        <div class="card-label">어제 총 광고금액</div>
+        <div class="card-value-big" data-field="amount">-</div>
+        <div class="card-delta tiny placeholder" data-field="delta">연동 필요</div>
+        <div class="mini-chart-wrap"><canvas id="mini-total-wow"></canvas></div>
       </div>
     </div>
-  </div>
 
-  <!-- Row 4 : 총 광고금액 (어제 / 이번달 일평균) -->
-  <div class="row row-2">
-    <div class="card" id="card-total-wow">
-      <div class="card-label">어제 총 광고금액</div>
-      <div class="card-value-big" data-field="amount">-</div>
-      <div class="card-delta tiny placeholder" data-field="delta">연동 필요</div>
-      <div class="mini-chart-wrap"><canvas id="mini-total-wow"></canvas></div>
-    </div>
-    <div class="card" id="card-total-mom">
-      <div class="card-label">이번달 일평균 광고 금액</div>
-      <div class="card-value-big" data-field="amount">-</div>
-      <div class="card-delta tiny placeholder" data-field="delta">연동 필요</div>
-      <div class="mini-chart-wrap"><canvas id="mini-total-mom"></canvas></div>
+    <div class="row row-4" id="row-channel-vs-prevavg">
+      <div class="card" data-channel="meta"><div class="card-label">어제 META 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-prevavg-meta"></canvas></div></div>
+      <div class="card" data-channel="naver"><div class="card-label">어제 네이버 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-prevavg-naver"></canvas></div></div>
+      <div class="card" data-channel="coupang"><div class="card-label">어제 쿠팡 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-prevavg-coupang"></canvas></div></div>
+      <div class="card" data-channel="google"><div class="card-label">어제 구글 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-prevavg-google"></canvas></div></div>
     </div>
   </div>
 
-  <!-- Row 5 : 채널별 어제 vs 전월 일평균 -->
-  <div class="row row-4" id="row-channel-vs-prevavg">
-    <div class="card" data-channel="meta"><div class="card-label">어제 META 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-prevavg-meta"></canvas></div></div>
-    <div class="card" data-channel="naver"><div class="card-label">어제 네이버 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-prevavg-naver"></canvas></div></div>
-    <div class="card" data-channel="coupang"><div class="card-label">어제 쿠팡 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-prevavg-coupang"></canvas></div></div>
-    <div class="card" data-channel="google"><div class="card-label">어제 구글 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-prevavg-google"></canvas></div></div>
+  <!-- 탭: 이번달 데이터 -->
+  <div class="tab-panel hidden" data-tab-panel="month">
+    <div class="row row-2">
+      <div class="card" id="card-ratio-mtd">
+        <div class="card-label card-label-lg">이번달 매출액 대비 광고비 <span class="tag">실시간 집계</span></div>
+        <div class="card-value-big placeholder" data-field="ratio">-</div>
+        <div class="card-delta tiny placeholder" data-field="deltap">연동 필요</div>
+        <div class="mini-chart-wrap"><canvas id="mini-ratio-mtd"></canvas></div>
+      </div>
+      <div class="card" id="card-total-mom">
+        <div class="card-label">이번달 일평균 광고 금액</div>
+        <div class="card-value-big" data-field="amount">-</div>
+        <div class="card-delta tiny placeholder" data-field="delta">연동 필요</div>
+        <div class="mini-chart-wrap"><canvas id="mini-total-mom"></canvas></div>
+      </div>
+    </div>
+
+    <div class="row row-4" id="row-channel-vs-ytdavg">
+      <div class="card" data-channel="meta"><div class="card-label">이번달 META 평균 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-ytdavg-meta"></canvas></div></div>
+      <div class="card" data-channel="naver"><div class="card-label">이번달 네이버 평균 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-ytdavg-naver"></canvas></div></div>
+      <div class="card" data-channel="coupang"><div class="card-label">이번달 쿠팡 평균 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-ytdavg-coupang"></canvas></div></div>
+      <div class="card" data-channel="google"><div class="card-label">이번달 구글 평균 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-ytdavg-google"></canvas></div></div>
+    </div>
   </div>
 
-  <!-- Row 6 : 채널별 이번달 평균 vs 금년 누적 일평균 -->
-  <div class="row row-4" id="row-channel-vs-ytdavg">
-    <div class="card" data-channel="meta"><div class="card-label">이번달 META 평균 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-ytdavg-meta"></canvas></div></div>
-    <div class="card" data-channel="naver"><div class="card-label">이번달 네이버 평균 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-ytdavg-naver"></canvas></div></div>
-    <div class="card" data-channel="coupang"><div class="card-label">이번달 쿠팡 평균 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-ytdavg-coupang"></canvas></div></div>
-    <div class="card" data-channel="google"><div class="card-label">이번달 구글 평균 광고 금액</div><div class="card-value-big" data-field="amount">-</div><div class="card-delta tiny placeholder" data-field="delta">연동 필요</div><div class="mini-chart-wrap"><canvas id="mini-ytdavg-google"></canvas></div></div>
-  </div>
+  <!-- 탭: 이번년도 데이터 -->
+  <div class="tab-panel hidden" data-tab-panel="year">
+    <div class="row row-1">
+      <div class="card" id="card-ratio-ytd">
+        <div class="card-label card-label-lg">26년 누적 매출액 대비 광고비 <span class="tag">과세 기준</span></div>
+        <div class="card-value-big placeholder" data-field="ratio">-</div>
+        <div class="card-delta tiny placeholder" data-field="deltap">연동 필요</div>
+        <div class="mini-chart-wrap"><canvas id="mini-ratio-ytd"></canvas></div>
+      </div>
+    </div>
 
-  <!-- Row 7 : 채널별 누적 광고비 -->
-  <div class="row row-4" id="row-channel-cum">
-    <div class="card" data-channel="meta"><div class="card-label">누적 META 광고비 <span class="tag">전월까지</span></div><div class="card-delta card-value-big placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div><div class="mini-chart-wrap"><canvas id="mini-cum-meta"></canvas></div></div>
-    <div class="card" data-channel="naver"><div class="card-label">누적 네이버 광고비 <span class="tag">전월까지</span></div><div class="card-delta card-value-big placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div><div class="mini-chart-wrap"><canvas id="mini-cum-naver"></canvas></div></div>
-    <div class="card" data-channel="coupang"><div class="card-label">누적 쿠팡 광고비 <span class="tag">전월까지</span></div><div class="card-delta card-value-big placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div><div class="mini-chart-wrap"><canvas id="mini-cum-coupang"></canvas></div></div>
-    <div class="card" data-channel="google"><div class="card-label">누적 구글 광고비 <span class="tag">전월까지</span></div><div class="card-delta card-value-big placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div><div class="mini-chart-wrap"><canvas id="mini-cum-google"></canvas></div></div>
+    <div class="row row-1">
+      <div class="card chart-card">
+        <div class="card-label">매출액 대비 광고비 추이 <span class="tag">이번년도 vs 작년</span></div>
+        <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+
+    <div class="row row-2">
+      <div class="card bar-card" id="card-total-bar">
+        <div class="card-label">누적 총 광고비 비교 <span class="tag">전월까지 vs 작년 동월까지</span> <span class="tag">과세 기준</span></div>
+        <canvas id="totalBarChart"></canvas>
+      </div>
+      <div class="card no-chart" id="card-total-cum">
+        <div class="card-label">지난달까지 누적 총 광고비 <span class="tag">과세 기준</span></div>
+        <div class="card-value-big placeholder" data-field="amount">-</div>
+        <div class="card-sub placeholder" data-field="delta">연동 필요</div>
+        <div class="cum-revenue-block">
+          <div class="cum-revenue-label">지난달까지 누적 총 매출액 <span class="tag">과세 기준</span></div>
+          <div class="cum-revenue-value placeholder" data-field="revenue">-</div>
+          <div class="card-sub placeholder" data-field="revenueDelta">연동 필요</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row row-4" id="row-channel-cum">
+      <div class="card" data-channel="meta"><div class="card-label">누적 META 광고비 <span class="tag">전월까지</span></div><div class="card-delta card-value-big placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div><div class="mini-chart-wrap"><canvas id="mini-cum-meta"></canvas></div></div>
+      <div class="card" data-channel="naver"><div class="card-label">누적 네이버 광고비 <span class="tag">전월까지</span></div><div class="card-delta card-value-big placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div><div class="mini-chart-wrap"><canvas id="mini-cum-naver"></canvas></div></div>
+      <div class="card" data-channel="coupang"><div class="card-label">누적 쿠팡 광고비 <span class="tag">전월까지</span></div><div class="card-delta card-value-big placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div><div class="mini-chart-wrap"><canvas id="mini-cum-coupang"></canvas></div></div>
+      <div class="card" data-channel="google"><div class="card-label">누적 구글 광고비 <span class="tag">전월까지</span></div><div class="card-delta card-value-big placeholder" data-field="delta">연동 필요</div><div class="card-sub" data-field="amount">-</div><div class="mini-chart-wrap"><canvas id="mini-cum-google"></canvas></div></div>
+    </div>
   </div>
 </main>
 
@@ -1594,10 +1621,31 @@ function renderTotalBarChart(prevYearTotal, curYearTotal, year){
 /* =========================================================================
    초기화
    ========================================================================= */
+function initTabs(){
+  const btns = document.querySelectorAll('.tab-btn');
+  const panels = document.querySelectorAll('.tab-panel');
+  btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.tab;
+      btns.forEach(b => b.classList.toggle('active', b === btn));
+      panels.forEach(p => p.classList.toggle('hidden', p.dataset.tabPanel !== target));
+      // 숨겨진 탭에서 그린 차트는 크기가 0으로 계산되므로, 탭이 보일 때 다시 사이즈를 맞춰준다
+      requestAnimationFrame(() => {
+        Object.keys(charts).forEach(k => {
+          if (charts[k] && typeof charts[k].resize === 'function') {
+            try { charts[k].resize(); } catch(e) {}
+          }
+        });
+      });
+    });
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initDropdown();
   initAuth();
+  initTabs();
   renderAuthArea(false);
 
   document.getElementById('gateStaticBtn').addEventListener('click', async () => {
