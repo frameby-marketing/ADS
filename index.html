@@ -173,14 +173,9 @@
   .mini-chart-wrap canvas{width:100% !important;height:100% !important;}
   .card:has(.mini-chart-wrap){min-height:280px;}
   .card.no-chart{justify-content:center;min-height:280px;}
-  #card-total-cum{text-align:center;}
-  #card-total-cum [data-field="amount"]{margin-top:14px;color:#fff;}
-  html[data-theme="light"] #card-total-cum [data-field="amount"]{color:var(--text-primary);}
-  #card-total-cum [data-field="delta"]{margin-top:10px;font-size:23px;font-weight:800;}
-  #card-total-cum .cum-revenue-block{margin-top:22px;padding-top:18px;border-top:1px solid var(--card-border);}
-  #card-total-cum .cum-revenue-label{font-size:13px;color:var(--text-secondary);font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;}
-  #card-total-cum .cum-revenue-value{margin-top:8px;font-size:26px;font-weight:800;color:var(--text-primary);}
-  #card-total-cum [data-field="revenueDelta"]{margin-top:6px;}
+  .pie-chart-wrap{position:relative;height:240px;margin-top:10px;}
+  .pie-chart-wrap canvas{width:100% !important;height:100% !important;}
+  .card:has(.pie-chart-wrap){min-height:300px;}
   .up{color:var(--positive);}
   .down{color:var(--negative);}
   .flat{color:var(--text-muted);}
@@ -326,12 +321,16 @@
   <!-- 섹션: 어제 데이터 -->
   <div class="section-heading"><span class="section-dot"></span>어제 데이터</div>
   <div class="tab-panel" data-tab-panel="yesterday">
-    <div class="row row-1">
+    <div class="row row-2">
       <div class="card" id="card-total-wow">
         <div class="card-label">어제 총 광고금액</div>
         <div class="card-value-big" data-field="amount">-</div>
         <div class="card-delta tiny placeholder" data-field="delta">연동 필요</div>
         <div class="mini-chart-wrap"><canvas id="mini-total-wow"></canvas></div>
+      </div>
+      <div class="card" id="card-yesterday-channel-pie">
+        <div class="card-label">어제 광고 플랫폼별 지출 비중</div>
+        <div class="pie-chart-wrap"><canvas id="pie-yesterday-channel"></canvas></div>
       </div>
     </div>
 
@@ -372,12 +371,17 @@
   <!-- 섹션: 이번년도 데이터 -->
   <div class="section-heading"><span class="section-dot"></span>이번년도 데이터</div>
   <div class="tab-panel" data-tab-panel="year">
-    <div class="row row-1">
+    <div class="row row-2">
       <div class="card" id="card-ratio-ytd">
         <div class="card-label card-label-lg">26년 누적 매출액 대비 광고비 <span class="tag">과세 기준</span></div>
         <div class="card-value-big placeholder" data-field="ratio">-</div>
         <div class="card-delta tiny placeholder" data-field="deltap">연동 필요</div>
         <div class="mini-chart-wrap"><canvas id="mini-ratio-ytd"></canvas></div>
+      </div>
+      <div class="card bar-card" id="card-total-bar">
+        <div class="card-label">누적 총 광고비 비교 <span class="tag">전월까지 vs 작년 동월까지</span> <span class="tag">과세 기준</span></div>
+        <canvas id="totalBarChart"></canvas>
+        <div class="card-sub placeholder" id="totalBarDiff">연동 필요</div>
       </div>
     </div>
 
@@ -389,19 +393,13 @@
     </div>
 
     <div class="row row-2">
-      <div class="card bar-card" id="card-total-bar">
-        <div class="card-label">누적 총 광고비 비교 <span class="tag">전월까지 vs 작년 동월까지</span> <span class="tag">과세 기준</span></div>
-        <canvas id="totalBarChart"></canvas>
+      <div class="card" id="card-pie-2025">
+        <div class="card-label">2025년 광고 플랫폼별 지출 비중</div>
+        <div class="pie-chart-wrap"><canvas id="pie-2025-channel"></canvas></div>
       </div>
-      <div class="card no-chart" id="card-total-cum">
-        <div class="card-label">지난달까지 누적 총 광고비 <span class="tag">과세 기준</span></div>
-        <div class="card-value-big placeholder" data-field="amount">-</div>
-        <div class="card-sub placeholder" data-field="delta">연동 필요</div>
-        <div class="cum-revenue-block">
-          <div class="cum-revenue-label">지난달까지 누적 총 매출액 <span class="tag">과세 기준</span></div>
-          <div class="cum-revenue-value placeholder" data-field="revenue">-</div>
-          <div class="card-sub placeholder" data-field="revenueDelta">연동 필요</div>
-        </div>
+      <div class="card" id="card-pie-ytd2026">
+        <div class="card-label">지난달까지 누적 광고 플랫폼별 지출 비중 <span class="tag">과세 기준</span></div>
+        <div class="pie-chart-wrap"><canvas id="pie-ytd-channel"></canvas></div>
       </div>
     </div>
 
@@ -590,6 +588,9 @@ const STATIC_DATA = {
 
 const CHANNELS = ['meta', 'naver', 'coupang', 'google'];
 const CHANNEL_LABEL = { meta: 'META', naver: '네이버', coupang: '쿠팡', google: '구글' };
+const CHANNEL_COLORS = { meta: '#6c7bff', naver: '#03c75a', coupang: '#ff6b6b', google: '#4285f4' };
+// 2025년 광고 플랫폼별 지출 비중 (연간 고정값, 사용자 제공)
+const CHANNEL_TOTALS_2025 = { naver: 268450533, google: 77314873, meta: 565533249, coupang: 60234071 };
 
 /* =========================================================================
    상태
@@ -773,6 +774,47 @@ function renderMiniBar(canvasId, prevVal, currVal, formatFn, labels){
       scales: {
         x: { display: true, grid: { display: false }, border: { display: false }, ticks: { color: labelColor, font: { size: 12, weight: '600' } } },
         y: { display: false, beginAtZero: true },
+      },
+    },
+    plugins: hasDataLabels ? [ChartDataLabels] : [],
+  });
+}
+
+// 채널별(META/네이버/쿠팡/구글) 지출 비중 도넛차트
+function renderChannelPie(canvasId, valuesObj){
+  const el = document.getElementById(canvasId);
+  if (!el) return;
+  if (!hasChart) return;
+  const labelColor = cssVar('--text-primary');
+  const labels = CHANNELS.map(ch => CHANNEL_LABEL[ch]);
+  const data = CHANNELS.map(ch => valuesObj && valuesObj[ch] ? valuesObj[ch] : 0);
+  const bg = CHANNELS.map(ch => CHANNEL_COLORS[ch]);
+  const total = data.reduce((a,b)=>a+b,0);
+  const key = 'pie_' + canvasId;
+  if (charts[key]) charts[key].destroy();
+  charts[key] = new Chart(el, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: bg, borderWidth: 0, hoverOffset: 6 }] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: labelColor, usePointStyle: true, pointStyle: 'circle', boxWidth: 9, boxHeight: 9, padding: 14, font: { size: 12, weight: '600' } },
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const pct = total > 0 ? (ctx.parsed / total * 100).toFixed(1) : '0.0';
+              return `${ctx.label}: ${fmtWon(ctx.parsed)} (${pct}%)`;
+            },
+          },
+        },
+        datalabels: hasDataLabels ? {
+          color: '#fff', font: { size: 11, weight: '700' },
+          formatter: (v) => (total > 0 && v > 0) ? (v/total*100).toFixed(1) + '%' : '',
+        } : false,
       },
     },
     plugins: hasDataLabels ? [ChartDataLabels] : [],
@@ -1240,6 +1282,9 @@ async function loadAll(source){
       renderMiniBar(`mini-prevavg-${ch}`, prevMonthAvg, yestVal, fmtWonCompact, ['지난주 동요일', '어제']);
     });
 
+    // 어제 광고 플랫폼별 지출 비중 (도넛)
+    renderChannelPie('pie-yesterday-channel', yestChannelRow || {});
+
     // ---- Row3: 채널별 어제 vs 금년 누적 일평균 ----
     let ytdSums = { meta:0, naver:0, google:0, coupang:0 };
     let ytdDays = 0;
@@ -1305,23 +1350,30 @@ async function loadAll(source){
     // ---- Row5: 연간 추이 라인차트 (1월~전월, 시트에 이미 있는 광고비/매출액 비중(%) 사용) ----
     renderTrendChart(rows2025, rows2026, prevMonthNum2);
 
-    // ---- Row6: 누적 총 광고비 ([과세] 광고액 기준, 전월까지 누적) ----
-    renderCumTotalCard(ytdActual26, ytdActual25, '전년 대비', ytdRevenue26, ytdRevenue25);
+    // ---- Row6: 누적 총 광고비 비교 ([과세] 광고액 기준, 전월까지 누적) ----
     renderTotalBarChart(ytdActual25, ytdActual26, yesterday.getFullYear());
+
+    // 2025년 광고 플랫폼별 지출 비중 (연간 고정값)
+    renderChannelPie('pie-2025-channel', CHANNEL_TOTALS_2025);
 
     // ---- Row7: 채널별(META/네이버/구글/쿠팡) 누적 — 시트1 월별 요약, 1월~전월 ----
     const cumMonths2026 = monthlyRows2026.filter(r => r.month <= prevMonthNum2 && prevMonthNum2 >= 1);
     const cumMonths2025 = monthlyRows2025.filter(r => r.month <= prevMonthNum2 && prevMonthNum2 >= 1);
 
     diag.channelCum = {};
+    const channelCumMap = {};
     CHANNELS.forEach(ch => {
       const cur = cumMonths2026.reduce((s,r)=>s+(r[ch]||0),0);
       const prev = cumMonths2025.reduce((s,r)=>s+(r[ch]||0),0);
+      channelCumMap[ch] = cur;
       const card = document.querySelector(`#row-channel-cum [data-channel="${ch}"]`);
       renderCumChannelCard(card, cur, prev, '전년 대비');
       renderMiniBar(`mini-cum-${ch}`, prev, cur, fmtWonCompact, [`25년 1월~${prevMonthNum2}월 누적`, `26년 1월~${prevMonthNum2}월 누적`]);
       diag.channelCum[ch] = { prev, cur };
     });
+
+    // 지난달까지 누적된 광고 플랫폼별 지출 비중 (도넛)
+    renderChannelPie('pie-ytd-channel', channelCumMap);
 
     document.getElementById('lastUpdated').textContent = `마지막 업데이트: ${new Date().toLocaleString('ko-KR')} · ${diag.mode}`;
     document.getElementById('rangeInfo').textContent = `기준일: 어제(${yesterday.toLocaleDateString('ko-KR')}) · 사용 탭: ${neededTabs.join(', ')} · 데이터 출처: ${diag.mode}`;
@@ -1469,21 +1521,6 @@ function diffSuffixHTML(cur, prev){
   if (diff === 0) return '<br>(변동 없음)';
   return `<br>(${diff > 0 ? '▲' : '▼'} ${fmtWon(Math.abs(diff))} ${diff > 0 ? '증가' : '감소'})`;
 }
-function renderCumTotalCard(cur, prev, label, cumRevenue, cumRevenuePrev){
-  const card = document.getElementById('card-total-cum');
-  const pct = pctChange(cur, prev);
-  const amountEl = card.querySelector('[data-field="amount"]');
-  amountEl.classList.remove('placeholder');
-  amountEl.textContent = (cur === null || cur === undefined) ? '데이터 없음' : fmtWon(cur);
-  setDelta(card, 'delta', pct, label);
-  const revenueEl = card.querySelector('[data-field="revenue"]');
-  if (revenueEl) {
-    revenueEl.classList.remove('placeholder');
-    revenueEl.textContent = (cumRevenue === null || cumRevenue === undefined) ? '데이터 없음' : fmtWon(cumRevenue);
-  }
-  const revenuePct = pctChange(cumRevenue, cumRevenuePrev);
-  setDelta(card, 'revenueDelta', revenuePct, '전년 동월 누적 대비');
-}
 function renderCumChannelCard(card, cur, prev, label){
   if (!card) return;
   const pct = pctChange(cur, prev);
@@ -1572,6 +1609,19 @@ function renderTrendChart(rows2025, rows2026, lastMonth){
 
 // Row6-2: 누적 총 광고비 비교 (전월까지 vs 작년 동월까지) — 이전=회색, 현재=오르면 빨강/내리면 파랑
 function renderTotalBarChart(prevYearTotal, curYearTotal, year){
+  const diffEl = document.getElementById('totalBarDiff');
+  if (diffEl) {
+    if (prevYearTotal === null || prevYearTotal === undefined || curYearTotal === null || curYearTotal === undefined) {
+      diffEl.textContent = '데이터 없음';
+      diffEl.className = 'card-sub';
+    } else {
+      const diff = curYearTotal - prevYearTotal;
+      diffEl.textContent = diff === 0
+        ? `${year-1}년 대비 변동 없음`
+        : `${year-1}년 대비 ${fmtWon(Math.abs(diff))} ${diff > 0 ? '증가' : '감소'}`;
+      diffEl.className = 'card-sub ' + (diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat');
+    }
+  }
   if (!hasChart) return;
   const ctx = document.getElementById('totalBarChart');
   const colors = chartColors();
