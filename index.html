@@ -749,7 +749,7 @@ function renderMiniBar(canvasId, prevVal, currVal, formatFn, labels){
   const key = 'mini_' + canvasId;
   if (charts[key]) charts[key].destroy();
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const labelColor = isDark ? '#ffffff' : cssVar('--text-primary');
+  const labelColor = isDark ? '#ffffff' : '#000000';
   const barLabels = labels && labels.length === 2 ? labels : ['지난', '현재'];
   charts[key] = new Chart(el, {
     type: 'bar',
@@ -789,7 +789,7 @@ function renderChannelPie(canvasId, valuesObj){
   if (!el) return;
   if (!hasChart) return;
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const labelColor = isDark ? '#ffffff' : cssVar('--text-primary');
+  const labelColor = isDark ? '#ffffff' : '#000000';
   const labels = CHANNELS.map(ch => CHANNEL_LABEL[ch]);
   const data = CHANNELS.map(ch => valuesObj && valuesObj[ch] ? valuesObj[ch] : 0);
   const bg = CHANNELS.map(ch => CHANNEL_COLORS[ch]);
