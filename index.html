@@ -783,7 +783,7 @@ function renderMiniBar(canvasId, prevVal, currVal, formatFn, labels){
   });
 }
 
-// 채널별(META/네이버/쿠팡/구글) 지출 비중 도넛차트
+// 채널별(META/네이버/쿠팡/구글) 지출 비중 파이차트
 function renderChannelPie(canvasId, valuesObj){
   const el = document.getElementById(canvasId);
   if (!el) return;
@@ -797,7 +797,7 @@ function renderChannelPie(canvasId, valuesObj){
   const key = 'pie_' + canvasId;
   if (charts[key]) charts[key].destroy();
   charts[key] = new Chart(el, {
-    type: 'doughnut',
+    type: 'pie',
     data: { labels, datasets: [{ data, backgroundColor: bg, borderWidth: 0, hoverOffset: 6 }] },
     options: {
       responsive: true,
@@ -816,7 +816,7 @@ function renderChannelPie(canvasId, valuesObj){
           },
         },
         datalabels: hasDataLabels ? {
-          color: (ctx) => isDark ? '#ffffff' : (CHANNELS[ctx.dataIndex] === 'google' ? '#1a1a1a' : '#fff'),
+          color: '#ffffff',
           font: { size: 11, weight: '700' },
           formatter: (v) => (total > 0 && v > 0) ? (v/total*100).toFixed(1) + '%' : '',
         } : false,
