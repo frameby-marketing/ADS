@@ -262,6 +262,24 @@
   @media (max-width:680px){
     .diag-box{padding:0 16px;}
   }
+
+
+  /* 상세보기 팝업 */
+  .detail-clickable{cursor:pointer;transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease;}
+  .detail-clickable:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 8px 28px rgba(0,0,0,.28);}
+  .detail-clickable::after{content:'상세보기';position:absolute;right:14px;top:14px;font-size:10px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:3px 7px;border-radius:999px;opacity:.9;}
+  .detail-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(4,6,10,.72);backdrop-filter:blur(4px);}
+  .detail-modal.open{display:flex;}
+  .detail-modal-panel{width:min(1080px,96vw);max-height:90vh;overflow:auto;background:var(--card-bg);border:1px solid var(--card-border);border-radius:20px;box-shadow:0 24px 80px rgba(0,0,0,.45);padding:24px;}
+  .detail-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}
+  .detail-modal-title{font-size:21px;font-weight:800;letter-spacing:-.3px;color:var(--text-primary);}
+  .detail-modal-subtitle{margin-top:5px;font-size:12.5px;color:var(--text-muted);line-height:1.5;}
+  .detail-modal-close{flex:none;width:34px;height:34px;border-radius:9px;border:1px solid var(--card-border);background:var(--bg-elevated);color:var(--text-primary);font-size:20px;cursor:pointer;}
+  .detail-chart-wrap{position:relative;height:470px;min-height:340px;margin-top:8px;}
+  .detail-chart-wrap canvas{width:100% !important;height:100% !important;max-height:none;}
+  #totalBarDiff{font-size:16px;font-weight:800;margin-top:8px;line-height:1.45;}
+  @media (max-width:680px){.detail-modal{padding:10px}.detail-modal-panel{padding:16px}.detail-chart-wrap{height:390px}.detail-modal-title{font-size:18px}}
+
 </style>
 </head>
 <body>
@@ -377,7 +395,7 @@
         <div class="mini-chart-wrap"><canvas id="mini-ratio-ytd"></canvas></div>
       </div>
       <div class="card bar-card" id="card-total-bar">
-        <div class="card-label">누적 총 광고비 비교 <span class="tag">전월까지 vs 작년 동월까지</span> <span class="tag">과세 기준</span></div>
+        <div class="card-label">누적 총 광고비 비교 <span class="tag" id="totalBarPeriodTag">확정월 기준</span> <span class="tag">과세 기준</span></div>
         <canvas id="totalBarChart"></canvas>
         <div class="card-sub placeholder" id="totalBarDiff">연동 필요</div>
       </div>
@@ -396,7 +414,7 @@
         <div class="pie-chart-wrap"><canvas id="pie-2025-channel"></canvas></div>
       </div>
       <div class="card" id="card-pie-ytd2026">
-        <div class="card-label">지난달까지 누적 광고 플랫폼별 지출 비중 <span class="tag">과세 기준</span></div>
+        <div class="card-label"><span id="ytdPieTitle">2026년 확정월까지 누적 광고 플랫폼별 지출 비중</span> <span class="tag">과세 기준</span></div>
         <div class="pie-chart-wrap"><canvas id="pie-ytd-channel"></canvas></div>
       </div>
     </div>
@@ -409,6 +427,20 @@
     </div>
   </div>
 </main>
+
+
+<div class="detail-modal" id="detailModal" aria-hidden="true">
+  <div class="detail-modal-panel" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
+    <div class="detail-modal-head">
+      <div>
+        <div class="detail-modal-title" id="detailModalTitle">상세보기</div>
+        <div class="detail-modal-subtitle" id="detailModalSubtitle"></div>
+      </div>
+      <button class="detail-modal-close" id="detailModalClose" aria-label="닫기">×</button>
+    </div>
+    <div class="detail-chart-wrap"><canvas id="detailModalChart"></canvas></div>
+  </div>
+</div>
 
 <footer class="note">
   ※ 이 대시보드는 두 개의 구글 스프레드시트(마케팅팀 광고채널별 현황 / 월별 예산 수립·실적비교)에 연동되어 있으며, 로그인한 구글 계정이 해당 시트에 접근 권한이 있어야 데이터가 표시됩니다.<br/>
@@ -600,6 +632,7 @@ let diag = {};
 let lastMode = null;
 let hasChart = false;
 let hasDataLabels = false;
+let detailData = null;
 
 /* =========================================================================
    Chart.js 로더 — CDN이 하나 막혀 있어도 다른 CDN으로 자동 재시도
@@ -1258,6 +1291,197 @@ async function fetchLiveSnapshot(yesterday){
 /* =========================================================================
    데이터 로드 + 계산
    ========================================================================= */
+
+function avg(arr){
+  const vals = (arr||[]).filter(v => v !== null && v !== undefined && !isNaN(v));
+  return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+}
+
+function monthlySpendSeries(dailyRatioByTab, year, throughDate){
+  const out=[];
+  for(let m=1;m<=throughDate.getMonth()+1;m++){
+    const tab=`${pad2(year%100)}-${pad2(m)}`;
+    const rows=(dailyRatioByTab[tab]||[]).filter(r => r.date && (m < throughDate.getMonth()+1 || r.date <= throughDate));
+    const vals=rows.map(r=>r.adSpend).filter(v=>v!==null&&v!==undefined);
+    if(vals.length) out.push({month:m, value:avg(vals)});
+  }
+  return out;
+}
+
+function monthlyChannelAvgSeries(dailyChannelByTab, year, throughDate, ch){
+  const out=[];
+  for(let m=1;m<=throughDate.getMonth()+1;m++){
+    const tab=`${pad2(year%100)}-${pad2(m)}`;
+    const rows=(dailyChannelByTab[tab]||[]).filter(r => r.date && (m < throughDate.getMonth()+1 || r.date <= throughDate));
+    const vals=rows.map(r=>r[ch]).filter(v=>v!==null&&v!==undefined);
+    if(vals.length) out.push({month:m, value:avg(vals)});
+  }
+  return out;
+}
+
+
+function monthlyChannelAvgHybrid(monthlyRows, dailyChannelByTab, year, throughDate, ch){
+  const out=[];
+  const currentMonth=throughDate.getMonth()+1;
+  for(let m=1;m<=currentMonth;m++){
+    if(m<currentMonth){
+      const agg=(monthlyRows||[]).find(r=>r.month===m);
+      if(agg && agg[ch]!==null && agg[ch]!==undefined){ out.push({month:m,value:agg[ch]/daysInMonth(year,m)}); continue; }
+    }
+    const tab=`${pad2(year%100)}-${pad2(m)}`;
+    const rows=(dailyChannelByTab[tab]||[]).filter(r=>r.date && r.date<=throughDate);
+    const vals=rows.map(r=>r[ch]).filter(v=>v!==null&&v!==undefined);
+    if(vals.length) out.push({month:m,value:avg(vals)});
+  }
+  return out;
+}
+
+function monthlyChannelShareHybrid(monthlyRows, dailyChannelByTab, year, throughDate){
+  const out=[];
+  const currentMonth=throughDate.getMonth()+1;
+  for(let m=1;m<=currentMonth;m++){
+    let sums=null;
+    if(m<currentMonth){
+      const agg=(monthlyRows||[]).find(r=>r.month===m);
+      if(agg) sums={meta:agg.meta||0,naver:agg.naver||0,coupang:agg.coupang||0,google:agg.google||0};
+    }
+    if(!sums){
+      const tab=`${pad2(year%100)}-${pad2(m)}`;
+      const rows=(dailyChannelByTab[tab]||[]).filter(r=>r.date && r.date<=throughDate);
+      if(!rows.length) continue;
+      sums={meta:0,naver:0,coupang:0,google:0}; rows.forEach(r=>CHANNELS.forEach(ch=>sums[ch]+=(r[ch]||0)));
+    }
+    const total=CHANNELS.reduce((a,ch)=>a+sums[ch],0);
+    if(total>0){ const row={month:m}; CHANNELS.forEach(ch=>row[ch]=sums[ch]/total*100); out.push(row); }
+  }
+  return out;
+}
+
+function monthlyChannelShareSeries(dailyChannelByTab, year, throughDate){
+  const out=[];
+  for(let m=1;m<=throughDate.getMonth()+1;m++){
+    const tab=`${pad2(year%100)}-${pad2(m)}`;
+    const rows=(dailyChannelByTab[tab]||[]).filter(r => r.date && (m < throughDate.getMonth()+1 || r.date <= throughDate));
+    if(!rows.length) continue;
+    const sums={meta:0,naver:0,coupang:0,google:0};
+    rows.forEach(r=>CHANNELS.forEach(ch=>sums[ch]+=(r[ch]||0)));
+    const total=CHANNELS.reduce((a,ch)=>a+sums[ch],0);
+    if(total>0){
+      const shares={month:m}; CHANNELS.forEach(ch=>shares[ch]=sums[ch]/total*100); out.push(shares);
+    }
+  }
+  return out;
+}
+
+function monthlyRatioSeries(dailyRatioByTab, year, throughDate){
+  const out=[];
+  for(let m=1;m<=throughDate.getMonth()+1;m++){
+    const tab=`${pad2(year%100)}-${pad2(m)}`;
+    const rows=(dailyRatioByTab[tab]||[]).filter(r => r.date && (m < throughDate.getMonth()+1 || r.date <= throughDate));
+    if(!rows.length) continue;
+    const spend=rows.reduce((s,r)=>s+(r.adSpend||0),0), revenue=rows.reduce((s,r)=>s+(r.revenue||0),0);
+    if(revenue>0) out.push({month:m,value:spend/revenue*100});
+  }
+  return out;
+}
+
+function openDetailModal(title, subtitle, config){
+  const modal=document.getElementById('detailModal');
+  if(!modal || !hasChart) return;
+  document.getElementById('detailModalTitle').textContent=title;
+  document.getElementById('detailModalSubtitle').textContent=subtitle||'';
+  modal.classList.add('open'); modal.setAttribute('aria-hidden','false');
+  if(charts.detailModal) charts.detailModal.destroy();
+  const ctx=document.getElementById('detailModalChart');
+  charts.detailModal=new Chart(ctx,config);
+}
+
+function closeDetailModal(){
+  const modal=document.getElementById('detailModal'); if(!modal)return;
+  modal.classList.remove('open'); modal.setAttribute('aria-hidden','true');
+}
+
+function commonDetailOptions(yCallback){
+  const c=chartColors();
+  return {
+    responsive:true, maintainAspectRatio:false,
+    layout:{padding:{top:30,right:42,bottom:4,left:4}},
+    plugins:{legend:{display:false},tooltip:{enabled:true},datalabels:false},
+    scales:{x:{ticks:{color:c.text,font:{size:12,weight:'600'}},grid:{display:false}},y:{beginAtZero:true,ticks:{color:c.text,callback:yCallback},grid:{color:c.grid}}}
+  };
+}
+
+function averageLineDataset(value, len, formatFn){
+  const c=chartColors();
+  return {type:'line',label:'평균',data:Array(len).fill(value),borderColor:c.text,borderWidth:2,borderDash:[7,6],pointRadius:(ctx)=>ctx.dataIndex===len-1?3:0,pointHoverRadius:3,tension:0,
+    datalabels:hasDataLabels?{display:(ctx)=>ctx.dataIndex===len-1,align:'top',anchor:'end',offset:5,color:c.text,font:{size:12,weight:'800'},formatter:()=>`평균 ${formatFn(value)}`} : false};
+}
+
+function showDetail(kind, ch=null){
+  if(!detailData || !hasChart) return;
+  const d=detailData, c=chartColors(), year=d.yesterday.getFullYear();
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const labelColor=isDark?'#fff':'#111';
+
+  if(kind==='yesterdayTotal'){
+    const months=d.monthlySpend.filter(x=>x.month<=d.prevMonthNum2);
+    const labels=months.map(x=>`${x.month}월`).concat(['어제']);
+    const values=months.map(x=>x.value).concat([d.yestTotal]);
+    const avgVal=avg(months.map(x=>x.value));
+    const opts=commonDetailOptions(v=>fmtWonCompact(v));
+    opts.plugins.datalabels=hasDataLabels?{color:labelColor,anchor:'end',align:'top',font:{size:11,weight:'700'},formatter:v=>fmtWonCompact(v)}:false;
+    openDetailModal('어제 총 광고금액 상세 비교',`${year}년 1월~${d.prevMonthNum2}월 일평균 총 광고금액과 어제 광고금액 비교`,{type:'bar',data:{labels,datasets:[{data:values,backgroundColor:values.map((_,i)=>i===values.length-1?c.blue:c.gray),borderRadius:6,maxBarThickness:58},averageLineDataset(avgVal,labels.length,fmtWonCompact)]},options:opts,plugins:hasDataLabels?[ChartDataLabels]:[]});
+    return;
+  }
+
+  if(kind==='yesterdayShare'){
+    const s=d.monthlyShares, labels=s.map(x=>`${x.month}월`);
+    const datasets=CHANNELS.map(ch=>({label:CHANNEL_LABEL[ch],data:s.map(x=>x[ch]),borderColor:CHANNEL_COLORS[ch],backgroundColor:'transparent',borderWidth:3,pointRadius:4,tension:.18}));
+    const opts=commonDetailOptions(v=>v+'%'); opts.plugins.legend={display:true,position:'bottom',labels:{color:c.text,usePointStyle:true,pointStyle:'circle',padding:18}};
+    opts.plugins.datalabels=hasDataLabels?{color:(ctx)=>CHANNEL_COLORS[CHANNELS[ctx.datasetIndex]],align:'top',anchor:'end',font:{size:10,weight:'700'},formatter:v=>v.toFixed(1)+'%'}:false;
+    openDetailModal('월별 광고 플랫폼 지출 비중 추이',`${year}년 1월부터 어제까지 · 월별 각 플랫폼 광고비가 전체 광고비에서 차지하는 비중`,{type:'line',data:{labels,datasets},options:opts,plugins:hasDataLabels?[ChartDataLabels]:[]});
+    return;
+  }
+
+  if(kind==='yesterdayChannel' && ch){
+    const months=d.monthlyChannelAvg[ch].filter(x=>x.month<=d.prevMonthNum2);
+    const labels=months.map(x=>`${x.month}월`).concat(['어제']); const values=months.map(x=>x.value).concat([d.yestChannelRow?d.yestChannelRow[ch]:null]);
+    const opts=commonDetailOptions(v=>fmtWonCompact(v)); opts.plugins.datalabels=hasDataLabels?{color:labelColor,anchor:'end',align:'top',font:{size:11,weight:'700'},formatter:v=>fmtWonCompact(v)}:false;
+    openDetailModal(`어제 ${CHANNEL_LABEL[ch]} 광고비 상세 비교`,`${year}년 1월~${d.prevMonthNum2}월 월별 일평균 광고비와 어제 광고비 비교`,{type:'bar',data:{labels,datasets:[{data:values,backgroundColor:values.map((_,i)=>i===values.length-1?CHANNEL_COLORS[ch]:c.gray),borderRadius:6,maxBarThickness:58}]},options:opts,plugins:hasDataLabels?[ChartDataLabels]:[]}); return;
+  }
+
+  if(kind==='monthRatio'){
+    const s=d.monthlyRatios, labels=s.map(x=>`${x.month}월`), values=s.map(x=>x.value), av=avg(values);
+    const opts=commonDetailOptions(v=>v+'%'); opts.plugins.datalabels=hasDataLabels?{color:labelColor,align:'top',anchor:'end',font:{size:11,weight:'700'},formatter:v=>v.toFixed(1)+'%'}:false;
+    openDetailModal('월별 매출액 대비 광고비 추이',`${year}년 1월부터 이번달(어제까지) · 광고비 ÷ 매출액`,{type:'line',data:{labels,datasets:[{data:values,borderColor:c.blue,backgroundColor:'transparent',borderWidth:4,pointRadius:5,tension:.18},averageLineDataset(av,labels.length,v=>v.toFixed(1)+'%')]},options:opts,plugins:hasDataLabels?[ChartDataLabels]:[]}); return;
+  }
+
+  if(kind==='monthTotal'){
+    const s=d.monthlySpend, labels=s.map(x=>`${x.month}월`), values=s.map(x=>x.value), av=avg(values);
+    const opts=commonDetailOptions(v=>fmtWonCompact(v)); opts.plugins.datalabels=hasDataLabels?{color:labelColor,anchor:'end',align:'top',font:{size:11,weight:'700'},formatter:v=>fmtWonCompact(v)}:false;
+    openDetailModal('월별 일평균 총 광고금액',`${year}년 1월부터 이번달(어제까지)`,{type:'bar',data:{labels,datasets:[{data:values,backgroundColor:c.blue,borderRadius:6,maxBarThickness:58},averageLineDataset(av,labels.length,fmtWonCompact)]},options:opts,plugins:hasDataLabels?[ChartDataLabels]:[]}); return;
+  }
+
+  if(kind==='monthChannel' && ch){
+    const s=d.monthlyChannelAvg[ch], labels=s.map(x=>`${x.month}월`), values=s.map(x=>x.value), av=avg(values);
+    const opts=commonDetailOptions(v=>fmtWonCompact(v)); opts.plugins.datalabels=hasDataLabels?{color:labelColor,anchor:'end',align:'top',font:{size:11,weight:'700'},formatter:v=>fmtWonCompact(v)}:false;
+    openDetailModal(`${CHANNEL_LABEL[ch]} 월별 일평균 광고비`,`${year}년 1월부터 이번달(어제까지)`,{type:'bar',data:{labels,datasets:[{data:values,backgroundColor:CHANNEL_COLORS[ch],borderRadius:6,maxBarThickness:58},averageLineDataset(av,labels.length,fmtWonCompact)]},options:opts,plugins:hasDataLabels?[ChartDataLabels]:[]});
+  }
+}
+
+function initDetailInteractions(){
+  const bind=(el,fn)=>{if(!el)return;el.classList.add('detail-clickable');el.addEventListener('click',fn)};
+  bind(document.getElementById('card-total-wow'),()=>showDetail('yesterdayTotal'));
+  bind(document.getElementById('card-yesterday-channel-pie'),()=>showDetail('yesterdayShare'));
+  document.querySelectorAll('#row-channel-vs-prevavg [data-channel]').forEach(el=>bind(el,()=>showDetail('yesterdayChannel',el.dataset.channel)));
+  bind(document.getElementById('card-ratio-mtd'),()=>showDetail('monthRatio'));
+  bind(document.getElementById('card-total-mom'),()=>showDetail('monthTotal'));
+  document.querySelectorAll('#row-channel-vs-ytdavg [data-channel]').forEach(el=>bind(el,()=>showDetail('monthChannel',el.dataset.channel)));
+  document.getElementById('detailModalClose')?.addEventListener('click',closeDetailModal);
+  document.getElementById('detailModal')?.addEventListener('click',e=>{if(e.target.id==='detailModal')closeDetailModal()});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDetailModal()});
+}
+
 async function loadAll(source){
   hideBanner();
   const mode = source || (accessToken ? 'live' : 'static');
@@ -1348,7 +1572,7 @@ async function loadAll(source){
       const prevMonthAvg = prevMonthRows.length ? prevMonthSum / prevMonthDayCount : null;
       const card = document.querySelector(`#row-channel-vs-prevavg [data-channel="${ch}"]`);
       renderChannelCard(card, yestVal, pctChange(yestVal, prevMonthAvg), '전월 일평균 대비');
-      renderMiniBar(`mini-prevavg-${ch}`, prevMonthAvg, yestVal, fmtWonCompact, ['지난주 동요일', '어제']);
+      renderMiniBar(`mini-prevavg-${ch}`, prevMonthAvg, yestVal, fmtWonCompact, ['지난달 일평균', '어제']);
     });
 
     // 어제 광고 플랫폼별 지출 비중 (도넛)
@@ -1401,6 +1625,13 @@ async function loadAll(source){
     diag.prevMonthNum2 = prevMonthNum2;
     diag.finalizedCutoffNote = `오늘(${todayRef.toLocaleDateString('ko-KR')}) 기준 ${todayRef.getDate() >= 10 ? '10일 이상 → 전월까지 확정' : '10일 미만 → 전전월까지만 확정'}`;
 
+    // 확정월 기준 문구를 실제 연/월로 구체화
+    const totalBarPeriodTag = document.getElementById('totalBarPeriodTag');
+    if (totalBarPeriodTag) totalBarPeriodTag.textContent = `${yesterday.getFullYear()}년 ${prevMonthNum2}월까지 vs ${yesterday.getFullYear()-1}년 ${prevMonthNum2}월까지`;
+    const ytdPieTitle = document.getElementById('ytdPieTitle');
+    if (ytdPieTitle) ytdPieTitle.textContent = `${yesterday.getFullYear()}년 ${prevMonthNum2}월까지 누적 광고 플랫폼별 지출 비중`;
+
+
     // 금년 누적(전월까지) — [과세] 광고액 합 / TOTAL(매출액) 합
     const ytdRows2026 = rows2026.filter(r => r.month <= prevMonthNum2 && prevMonthNum2 >= 1);
     const ytdRevenue26 = ytdRows2026.reduce((s,r)=>s+(r.revenue||0),0);
@@ -1425,7 +1656,7 @@ async function loadAll(source){
     renderTrendChart(rows2025, rows2026, prevMonthNum2);
 
     // ---- Row6: 누적 총 광고비 비교 ([과세] 광고액 기준, 전월까지 누적) ----
-    renderTotalBarChart(ytdActual25, ytdActual26, yesterday.getFullYear());
+    renderTotalBarChart(ytdActual25, ytdActual26, yesterday.getFullYear(), prevMonthNum2);
 
     // 2025년 광고 플랫폼별 지출 비중 (연간 고정값)
     renderChannelPie('pie-2025-channel', CHANNEL_TOTALS_2025);
@@ -1448,6 +1679,17 @@ async function loadAll(source){
 
     // 지난달까지 누적된 광고 플랫폼별 지출 비중 (도넛)
     renderChannelPie('pie-ytd-channel', channelCumMap);
+
+    // 상세 팝업용 월별 데이터 캐시
+    const monthlyChannelAvg = {};
+    CHANNELS.forEach(ch => monthlyChannelAvg[ch] = monthlyChannelAvgHybrid(monthlyRows2026, dailyChannelByTab, yesterday.getFullYear(), yesterday, ch));
+    detailData = {
+      yesterday, prevMonthNum2, yestTotal, yestChannelRow,
+      monthlySpend: monthlySpendSeries(dailyRatioByTab, yesterday.getFullYear(), yesterday),
+      monthlyRatios: monthlyRatioSeries(dailyRatioByTab, yesterday.getFullYear(), yesterday),
+      monthlyShares: monthlyChannelShareHybrid(monthlyRows2026, dailyChannelByTab, yesterday.getFullYear(), yesterday),
+      monthlyChannelAvg,
+    };
 
     document.getElementById('lastUpdated').textContent = `마지막 업데이트: ${new Date().toLocaleString('ko-KR')} · ${diag.mode}`;
     document.getElementById('rangeInfo').textContent = `기준일: 어제(${yesterday.toLocaleDateString('ko-KR')}) · 사용 탭: ${neededTabs.join(', ')} · 데이터 출처: ${diag.mode}`;
@@ -1683,7 +1925,7 @@ function renderTrendChart(rows2025, rows2026, lastMonth){
 }
 
 // Row6-2: 누적 총 광고비 비교 (전월까지 vs 작년 동월까지) — 이전=회색, 현재=오르면 빨강/내리면 파랑
-function renderTotalBarChart(prevYearTotal, curYearTotal, year){
+function renderTotalBarChart(prevYearTotal, curYearTotal, year, lastMonth){
   const diffEl = document.getElementById('totalBarDiff');
   if (diffEl) {
     if (prevYearTotal === null || prevYearTotal === undefined || curYearTotal === null || curYearTotal === undefined) {
@@ -1708,7 +1950,7 @@ function renderTotalBarChart(prevYearTotal, curYearTotal, year){
   charts.totalBar = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: [`${year-1}년 (동월까지)`, `${year}년 (전월까지)`],
+      labels: [`${year-1}년 ${lastMonth}월까지`, `${year}년 ${lastMonth}월까지`],
       datasets: [{
         label: '누적 총 광고비',
         data: [prevYearTotal, curYearTotal],
@@ -1719,6 +1961,7 @@ function renderTotalBarChart(prevYearTotal, curYearTotal, year){
     options: {
       indexAxis: 'y',
       responsive: true,
+      layout: { padding: { right: 86, top: 8, bottom: 8 } },
       plugins: {
         legend: { display: false },
         datalabels: hasDataLabels ? {
@@ -1740,6 +1983,7 @@ function renderTotalBarChart(prevYearTotal, curYearTotal, year){
    ========================================================================= */
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
+  initDetailInteractions();
   initDropdown();
   initAuth();
   renderAuthArea(false);
