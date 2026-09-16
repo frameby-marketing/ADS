@@ -448,7 +448,7 @@
 
 <footer class="note">
   ※ 이 대시보드는 두 개의 구글 스프레드시트(마케팅팀 광고채널별 현황 / 월별 예산 수립·실적비교)에 연동되어 있으며, 로그인한 구글 계정이 해당 시트에 접근 권한이 있어야 데이터가 표시됩니다.<br/>
-  ※ 컬럼 배치는 스크립트 상단 <code>CONFIG</code> 객체에 설정되어 있습니다. 특히 <code>sheet2.y2025 / y2026</code>의 <code>budget/spare</code> 열 위치는 추정값이니, "월별 예산 수립 & 실적 비교" 시트의 실제 A~F열 구성(TOTAL=매출액, [과세] 광고액, 비중% 컬럼이 각각 몇 열인지)에 맞춰 <code>cols</code> 숫자(0=A,1=B,2=C,3=D,4=E,5=F)를 확인해 주세요.<br/>
+  ※ 월별 예산 수립·실적 비교 표는 2025년 A:F, 2026년 A:G의 서로 다른 열 구성을 각각 반영합니다. 2026년은 B=자사+네이버, C=M몰, D=쿠팡, E=TOTAL, F=[과세] 광고액, G=광고비/매출액 비중입니다.<br/>
   ※ Google Cloud Console의 OAuth 클라이언트에 이 파일을 여는 주소(예: http://localhost:5500)가 "승인된 자바스크립트 원본"으로 등록되어 있어야 로그인이 동작합니다. file:// 로 직접 열면 동작하지 않습니다.<br/>
   ※ 채널별 광고비(M:Q) 범위는 탭마다 실제 행 위치가 달라 <code>CONFIG.sheet1.dailyChannel.rangeByTab</code>에 탭별로 지정되어 있습니다(26-07=M63:Q94, 26-06=M62:Q92). 새 월 탭이 생기면 실제 범위를 확인해 이 표에 추가해 주세요. 그 외 범위(O8:R39 등)는 모든 월 탭에서 동일하게 사용됩니다.
 </footer>
@@ -490,9 +490,10 @@ const CONFIG = {
   sheet2: {
     id: '1wZfrG8my5yk7DpNNLqrrbhOQm4bQMFZko6BJjRMduYA',
     tabName: '*광고비 관련', // 실제 탭 이름이 다르면 수정
-    // ✅ 실제 컬럼 확인됨: A=월, B=[과세] 매출액, C=쿠팡 매출액, D=TOTAL(매출액), E=[과세] 광고액, F=광고비/매출액 비중(%)
+    // 2025년: A=월, B=[과세] 매출액, C=쿠팡 매출액, D=TOTAL, E=[과세] 광고액, F=비중
+    // 2026년: A=월, B=자사+네이버, C=M몰, D=쿠팡 매출액, E=TOTAL, F=[과세] 광고액, G=비중
     y2025: { a1: 'A5:F17', cols: { month: 0, taxRevenue: 1, coupangRevenue: 2, revenue: 3, actual: 4, ratio: 5 } },
-    y2026: { a1: 'A21:F33', cols: { month: 0, taxRevenue: 1, coupangRevenue: 2, revenue: 3, actual: 4, ratio: 5 } },
+    y2026: { a1: 'A21:G33', cols: { month: 0, ownNaverRevenue: 1, mmallRevenue: 2, coupangRevenue: 3, revenue: 4, actual: 5, ratio: 6 } },
   },
 };
 
@@ -600,7 +601,7 @@ const STATIC_DATA = {
       [4,18176569,16828813,1671780,4274349],[5,20475539,13423556,1664699,5335024],[6,16126917,11781588,1671120,3213077],
     ],
   },
-  // 월별 예산/실적 (*광고비 관련 시트 A5:F17 / A21:F33 상당) — [월, [과세]매출액, 쿠팡매출액, TOTAL, [과세]광고액, 비중%]
+  // 월별 예산/실적. 2025년은 6열, 2026년은 M몰이 추가된 7열 구조.
   budget: {
     y2025: [
       [1,299881535,19519975,319401510,92998891,29.12],[2,250951731,15007661,265959392,72930835,27.42],
@@ -611,9 +612,10 @@ const STATIC_DATA = {
       [11,234611167,45237862,279849029,85906992,30.70],[12,286156914,47734233,333891147,89050960,26.67],
     ],
     y2026: [
-      [1,177549176,48391443,225940619,55693317,24.65],[2,130352391,42185305,172537696,42136437,24.42],
-      [3,144172383,42987291,187159674,47814051,25.55],[4,125064267,33367242,158431509,42252361,26.67],
-      [5,114791879,31791599,146583478,43239170,29.50],[6,116306443,21971376,138277819,33633050,24.32],
+      [1,145477848,32071328,48391443,225940619,55801043,24.70],[2,108890972,21461419,42185305,172537696,42467623,24.61],
+      [3,123786398,20385985,42987291,187159674,47870127,25.58],[4,105156475,19907792,33367242,158431509,42252361,26.67],
+      [5,95408210,19383669,31791599,146583478,43239170,29.50],[6,96996918,19309525,21971376,138277819,33633050,24.32],
+      [7,66883592,12916816,24620673,104421081,30504957,29.21],[8,78936416,10299875,18852743,108089034,29375010,27.18],
     ],
   },
   // 이 정적 데이터의 "오늘" 기준일 — 실제 접속일과 달라도 이 날짜를 어제로 보고 계산합니다.
@@ -1102,11 +1104,14 @@ function buildStaticSnapshot(){
     }));
   });
 
-  function mapBudget(rows){
+  function mapBudget2025(rows){
     return rows.map(([month, taxRevenue, coupangRevenue, revenue, actual, ratio]) => ({ month, revenue, actual, ratio }));
   }
-  const rows2025 = mapBudget(STATIC_DATA.budget.y2025);
-  const rows2026 = mapBudget(STATIC_DATA.budget.y2026);
+  function mapBudget2026(rows){
+    return rows.map(([month, ownNaverRevenue, mmallRevenue, coupangRevenue, revenue, actual, ratio]) => ({ month, revenue, actual, ratio }));
+  }
+  const rows2025 = mapBudget2025(STATIC_DATA.budget.y2025);
+  const rows2026 = mapBudget2026(STATIC_DATA.budget.y2026);
 
   function mapMonthlyChannel(rows){
     return rows.map(([month, meta, naver, google, coupang]) => ({ month, meta, naver, google, coupang, total: meta+naver+google+coupang }));
@@ -1252,8 +1257,8 @@ async function fetchLiveSnapshot(yesterday){
     const found = Object.keys(byRange2).find(k => k.includes(def.a1.split(':')[0]));
     return found ? byRange2[found] : [];
   }
-  function parseBudgetRows(rows){
-    const c = CONFIG.sheet2.y2025.cols;
+  function parseBudgetRows(rows, def){
+    const c = def.cols;
     return rows.map(r => {
       const rawRatio = toNumber(r[c.ratio]);
       // 시트의 "비중%" 셀이 %서식이면 UNFORMATTED_VALUE가 0.29 같은 소수로 오므로 %값으로 환산
@@ -1268,8 +1273,8 @@ async function fetchLiveSnapshot(yesterday){
   }
   const raw2025 = getRows2(CONFIG.sheet2.y2025);
   const raw2026 = getRows2(CONFIG.sheet2.y2026);
-  const rows2025 = parseBudgetRows(raw2025);
-  const rows2026 = parseBudgetRows(raw2026);
+  const rows2025 = parseBudgetRows(raw2025, CONFIG.sheet2.y2025);
+  const rows2026 = parseBudgetRows(raw2026, CONFIG.sheet2.y2026);
   diag.sheet2Parsed = {
     y2025: `${raw2025.length}행 수신 → ${rows2025.length}행 파싱 성공 (월 인식 실패분 제외)`,
     y2026: `${raw2026.length}행 수신 → ${rows2026.length}행 파싱 성공 (월 인식 실패분 제외)`,
@@ -1833,7 +1838,7 @@ function renderDiagnostics(){
   L.push(`  응답받은 범위: ${(diag.sheet2RangesReturned||[]).join(' , ') || '(없음 — 탭 이름이 실제와 다를 수 있습니다)'}`);
   if (diag.sheet2Parsed) {
     L.push(`  25년(A5:F17): ${diag.sheet2Parsed.y2025}`);
-    L.push(`  26년(A21:F33): ${diag.sheet2Parsed.y2026}`);
+    L.push(`  26년(A21:G33): ${diag.sheet2Parsed.y2026}`);
     L.push(`  25년 헤더행 샘플: ${diag.sheet2Parsed.y2025HeaderSample}`);
     L.push(`  25년 실제 데이터행 샘플(1월): ${diag.sheet2Parsed.y2025DataSample}`);
     L.push(`  26년 헤더행 샘플: ${diag.sheet2Parsed.y2026HeaderSample}`);
